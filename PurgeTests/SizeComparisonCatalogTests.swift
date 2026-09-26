@@ -6,10 +6,16 @@ private let kb: Int64 = 1024
 private let mb: Int64 = 1024 * 1024
 private let gb: Int64 = 1024 * 1024 * 1024
 
-/// Leading count in a label like "47× the English Wikipedia" or "19 CDs".
-private func leadingCount(_ label: String) -> Int? {
-    let digits = label.prefix { $0.isNumber || $0 == "," }
-    return Int(digits.filter(\.isNumber))
+/// Walks sizes from 5 MB to 3 TB in 5% steps, the range a clean or a
+/// lifetime total realistically covers.
+private func realisticSizes() -> [Int64] {
+    var sizes: [Int64] = []
+    var bytes = 5 * mb
+    while bytes < 3 * 1024 * gb {
+        sizes.append(bytes)
+        bytes = Int64(Double(bytes) * 1.05)
+    }
+    return sizes
 }
 
 @Suite("Size comparison catalog")
@@ -19,37 +25,35 @@ struct SizeComparisonCatalogTests {
         #expect(SizeComparisonCatalog.item(for: -1 * gb) == nil)
     }
 
-    @Test("Every size from 1 MB to 3 TB gets a comparison")
+    @Test("Every size from 5 MB to 3 TB gets a comparison")
     func coversTheRealisticRange() {
-        var bytes = mb
-        while bytes < 3 * 1024 * gb {
+        for bytes in realisticSizes() {
             #expect(SizeComparisonCatalog.item(for: bytes) != nil, "no comparison for \(bytes) bytes")
-            bytes = Int64(Double(bytes) * 1.05)
         }
     }
 
-    /// A "1×" comparison is not a flex, and a seven-digit multiplier is noise.
-    @Test("Multipliers stay in a quotable range")
-    func keepsMultipliersQuotable() {
-        var bytes = mb
-        while bytes < 3 * 1024 * gb {
+    /// Counts of one use the singular phrasing, so a digit 0 or 1 never leads.
+    @Test("Labels never lead with a count of zero or one")
+    func usesSingularPhrasingForOne() {
+        for bytes in realisticSizes() {
             let label = SizeComparisonCatalog.item(for: bytes)?.label ?? ""
-            let count = leadingCount(label)
-            #expect(count != nil, "no leading count in \(label)")
-            #expect(count ?? 0 >= 2, "\(label) at \(bytes) bytes")
-            #expect(count ?? 0 <= 20_000, "\(label) at \(bytes) bytes")
-            bytes = Int64(Double(bytes) * 1.05)
+            #expect(!label.hasPrefix("0 ") && !label.hasPrefix("1 "), "\(label) at \(bytes) bytes")
         }
     }
 
-    /// Both chips that render these are `lineLimit(1)`, so long labels truncate.
+    /// "Room for" is a promise: the freed space has to hold every copy named.
+    @Test("Counts round down so the space really fits them")
+    func roundsCountsDown() {
+        #expect(SizeComparisonCatalog.item(for: 11 * gb)?.label != "the next macOS update")
+        #expect(SizeComparisonCatalog.item(for: 99 * mb)?.label == "49 more screenshots")
+    }
+
+    /// Every chip that renders these is `lineLimit(1)`, so long labels truncate.
     @Test("Labels stay short enough for a single-line chip")
     func keepsLabelsShort() {
-        var bytes = mb
-        while bytes < 3 * 1024 * gb {
+        for bytes in realisticSizes() {
             let label = SizeComparisonCatalog.item(for: bytes)?.label ?? ""
             #expect(label.count <= 32, "too long: \(label)")
-            bytes = Int64(Double(bytes) * 1.05)
         }
     }
 
@@ -63,16 +67,21 @@ struct SizeComparisonCatalogTests {
     }
 
     @Test(arguments: [
-        (1024 * gb, "47× the English Wikipedia"),
-        (13 * gb, "18× the human genome"),
-        (20 * mb, "20× Pokémon Red"),
+        (50 * mb, "25 more screenshots"),
+        (1 * gb, "Slack, twice over"),
+        (15 * gb, "the next macOS update"),
+        (20 * gb, "Photoshop, four times over"),
+        (36 * gb, "3 copies of Xcode"),
+        (315 * gb, "GTA V, three times over"),
+        (1024 * gb, "4 full base MacBook Airs"),
     ])
     func producesExpectedLabels(bytes: Int64, expected: String) {
         #expect(SizeComparisonCatalog.item(for: bytes)?.label == expected)
     }
 
-    @Test("Results line stays quiet below a megabyte")
-    func onboardingSuppressesTinySizes() {
+    @Test("Stays quiet below 5 MB")
+    func suppressesTinySizes() {
+        #expect(SizeComparisonCatalog.item(for: 4 * mb) == nil)
         #expect(OnboardingSizeComparison.items(for: 400 * kb) == nil)
         #expect(OnboardingSizeComparison.items(for: 40 * mb)?.count == 1)
     }

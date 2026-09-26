@@ -32,7 +32,7 @@ struct OnboardingCelebrationView: View {
             .font(.system(size: 40, weight: .bold, design: .rounded))
         }
 
-        Text(SpaceContextTranslation.phrase(for: bytesMovedToTrash))
+        Text(spaceContextLine)
           .font(.body)
           .foregroundStyle(.secondary)
           .multilineTextAlignment(.center)
@@ -66,5 +66,12 @@ struct OnboardingCelebrationView: View {
         }
       }
     }
+  }
+
+  private var spaceContextLine: String {
+    guard let item = SizeComparisonCatalog.item(for: bytesMovedToTrash) else {
+      return "Your Mac has a little more breathing room."
+    }
+    return "That's room for \(item.label)."
   }
 }

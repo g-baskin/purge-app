@@ -238,7 +238,7 @@ struct OnboardingSizeComparisonLine: View {
   }
 
   private var prefixLabel: some View {
-    Text("That's roughly")
+    Text("That's room for")
       .font(.title3.weight(.regular))
       .foregroundStyle(.secondary)
   }
@@ -259,7 +259,7 @@ struct OnboardingSizeComparisonLine: View {
 
   private var accessibilityLabel: String {
     let body = items.map(\.label).joined(separator: " or ")
-    return "That's roughly \(body)"
+    return "That's room for \(body)"
   }
 }
 

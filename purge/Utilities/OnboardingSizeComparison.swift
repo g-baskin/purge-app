@@ -8,10 +8,7 @@ struct OnboardingSizeComparisonItem: Identifiable, Equatable {
 }
 
 enum OnboardingSizeComparison {
-  private static let oneMegabyte: Int64 = 1024 * 1024
-
   static func items(for bytes: Int64) -> [OnboardingSizeComparisonItem]? {
-    guard bytes >= oneMegabyte else { return nil }
     guard let item = SizeComparisonCatalog.item(for: bytes) else { return nil }
 
     return [item]
