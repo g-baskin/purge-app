@@ -34,7 +34,9 @@ final class PurgeAppDelegate: NSObject, NSApplicationDelegate {
             hidesDockIcon: StartupPreferenceStore.persistedHidesDockIcon(),
             launchedAsLoginItem: LaunchContext.launchedAsLoginItem,
             hasCompletedOnboarding: FirstRunGate.hasCompletedOnboarding
-        ) {
+        ) || RemovedAppMonitor.startsWindowless {
+            // Started by the deleted-apps watcher: the window appears only if
+            // there is something to review (`RemovedAppMonitor`).
             InitialWindowSuppressor.suppressInitialWindow()
         }
     }
@@ -53,11 +55,18 @@ final class PurgeAppDelegate: NSObject, NSApplicationDelegate {
     /// Covers opening Purge from Finder or Spotlight while it is already running
     /// — the only "click the app" route left once the Dock icon is hidden.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        RemovedAppMonitor.shared.userOpenedWindow()
         guard !hasVisibleWindows else { return true }
         // No window object to raise: let SwiftUI make one rather than guessing.
         guard !AppWindowPresenter.needsNewWindow(windows: sender.windows) else { return true }
         AppWindowPresenter.reveal()
         return false
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            RemovedAppMonitor.shared.handleOpenURL(url)
+        }
     }
 
     func checkForUpdates() {
