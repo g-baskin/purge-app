@@ -3,6 +3,24 @@
   <channel>
     <title>Purge</title>
     <item>
+      <title>Version 1.6.0</title>
+      <pubDate>Sat, 26 Sep 2026 22:51:27 +0000</pubDate>
+      <sparkle:version>24</sparkle:version>
+      <sparkle:shortVersionString>1.6.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <ul>
+          <li><strong>Review leftovers when an app is deleted.</strong> Turn it on in Settings under Deleted Apps. When an app leaves Applications, even while Purge is quit, Purge opens with just that app's leftovers. Nothing moves until you confirm, and only files in your home folder that match the app start ticked. App updates do not open a review. Off by default.</li>
+          <li><strong>Size comparisons you can picture.</strong> Freed space is now compared with things on a Mac, like Slack, Photoshop, macOS updates, and Xcode. The line reads "That's room for…" and counts round down so it is always true.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/jithin-sabu/purge-app/releases/download/v1.6.0/Purgev1.6.0.dmg"
+        sparkle:edSignature="ozpfaq7rAYNSG8fEGAD+Fq4c3W+cWLCYIU45EuL6BdUvTOK74JINx/ODrFq9QXqJ3sSPVW7fU8Z277m5g7mrBw=="
+        length="8169979"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.5.3</title>
       <pubDate>Thu, 24 Sep 2026 13:05:00 +0000</pubDate>
       <sparkle:version>23</sparkle:version>
