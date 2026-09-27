@@ -3,6 +3,23 @@
   <channel>
     <title>Purge</title>
     <item>
+      <title>Version 1.6.1</title>
+      <pubDate>Sun, 27 Sep 2026 08:21:33 +0000</pubDate>
+      <sparkle:version>25</sparkle:version>
+      <sparkle:shortVersionString>1.6.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <ul>
+          <li><strong>Deleted-app reviews tell you when they stop working.</strong> If macOS switches Purge's background watcher off, or the watcher stops, the sidebar says reviews are paused and offers the fix. Settings shows the watcher's state under the toggle.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/jithin-sabu/purge-app/releases/download/v1.6.1/Purgev1.6.1.dmg"
+        sparkle:edSignature="Yvn/unvtDuVTo2FDzPPRN5nLVRLak0BTqnq5dLZFxaSELXpFFPt1tx5nHXc8vocECSRmPGd0ayIYUX2imMApDg=="
+        length="8196248"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.6.0</title>
       <pubDate>Sat, 26 Sep 2026 22:51:27 +0000</pubDate>
       <sparkle:version>24</sparkle:version>
