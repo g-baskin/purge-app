@@ -297,38 +297,21 @@ struct SettingsView: View {
             settingsToggleRow(
                 title: "Review leftovers when an app is deleted",
                 caption: deletedAppsCaption,
-                warning: deletedAppsWarning,
-                captionAnimatesTextChanges: true,
                 isOn: Binding(
                     get: { removedApps.isEnabled },
                     set: { removedApps.setEnabled($0) }
                 )
             )
 
-            if removedApps.isEnabled, removedApps.needsApproval {
-                settingsSectionDivider
-                HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(AppColors.tagCheckText)
-                        .padding(.top, 1)
-                    Text("Approval is still needed in System Settings before Purge can watch for deleted apps in the background.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
-                    Button("Open System Settings") {
-                        removedApps.openLoginItemsSettings()
-                    }
-                    .buttonStyle(.borderless)
-                }
+            settingsSectionDivider
+
+            // Like the helper's, one status line that always sits here. A watcher
+            // macOS blocked or that stopped misses every removal in silence, so
+            // this says so, with the one action that fixes it.
+            deletedAppsStatusCard
                 .padding(16)
-            }
         }
         .onAppear { removedApps.refreshAgentStatus() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            removedApps.refreshAgentStatus()
-        }
     }
 
     private var deletedAppsCaption: String {
@@ -340,9 +323,74 @@ struct SettingsView: View {
         """
     }
 
-    private var deletedAppsWarning: String? {
-        guard removedApps.isEnabled, removedApps.lastRegistrationFailed else { return nil }
-        return "Couldn't start the background watcher. Turn this off and on again to retry."
+    private var deletedAppsStatusCard: some View {
+        let health = removedApps.watcherHealth
+        return HStack(alignment: .top, spacing: 8) {
+            Group {
+                if health == .checking || removedApps.isRestartingWatcher {
+                    ProgressView()
+                        .controlSize(.mini)
+                } else {
+                    Image(systemName: deletedAppsStatusIcon(health))
+                        .font(.system(size: 13, weight: .medium))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(deletedAppsStatusTint(health))
+                }
+            }
+            .frame(width: 16, alignment: .center)
+            .padding(.top, 1)
+            .accessibilityHidden(true)
+
+            Text(deletedAppsStatusMessage(health))
+                .font(scheduleStatusSecondaryFont)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let fixTitle = health.fixTitle {
+                statusTextButton(
+                    removedApps.isRestartingWatcher ? "Restarting…" : fixTitle,
+                    isDisabled: removedApps.isRestartingWatcher,
+                    action: { removedApps.fixWatcher() }
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeInOut(duration: 0.2), value: health)
+    }
+
+    private func deletedAppsStatusIcon(_ health: WatcherHealth) -> String {
+        switch health {
+        case .running: return "checkmark.seal.fill"
+        case .needsApproval, .notRunning, .failedToStart: return "exclamationmark.triangle.fill"
+        case .off, .checking: return "eye.slash"
+        }
+    }
+
+    private func deletedAppsStatusTint(_ health: WatcherHealth) -> Color {
+        switch health {
+        case .running: return AppColors.tagSafeText
+        case .needsApproval, .notRunning, .failedToStart: return AppColors.tagCheckText
+        case .off, .checking: return AppColors.textSecondary
+        }
+    }
+
+    private func deletedAppsStatusMessage(_ health: WatcherHealth) -> String {
+        switch health {
+        case .off:
+            return "Off. Apps deleted outside Purge are not noticed."
+        case .checking:
+            return "Checking the background watcher."
+        case .running:
+            return "On. Purge is watching for deleted apps."
+        case .notRunning:
+            // A restart that does not stick means something outside Purge stops
+            // the watcher, so point at the switch macOS keeps for it.
+            return (health.problemMessage ?? "")
+                + " If it stops again, check that Purge is switched on under Login Items in System Settings."
+        case .needsApproval, .failedToStart:
+            return health.problemMessage ?? ""
+        }
     }
 
     private var cleaningScheduleSection: some View {

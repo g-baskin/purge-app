@@ -46,6 +46,14 @@ nonisolated enum RemovedAppHandoff {
     /// copy since replaced, keeps running old code.
     static let agentOwnerNotification = Notification.Name("io.getpurge.watch.owner")
 
+    /// Posted by Purge to check the watcher is running. macOS can list the agent
+    /// as allowed while nothing runs: it crashed, launchd gave up restarting it,
+    /// or the user switched it off in System Settings. Only an answer proves it.
+    static let agentPingNotification = Notification.Name("io.getpurge.watch.ping")
+    /// The watcher's answer, sent only while it is watching. The object is the
+    /// path of the agent executable that answered.
+    static let agentPongNotification = Notification.Name("io.getpurge.watch.pong")
+
     /// Where the agent executable sits inside a Purge bundle.
     static func agentExecutable(inApp appURL: URL) -> URL {
         appURL.appendingPathComponent("Contents/MacOS/io.getpurge.watch")

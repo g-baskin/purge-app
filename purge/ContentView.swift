@@ -774,6 +774,7 @@ struct SidebarSummaryView: View {
 
     var body: some View {
         VStack(spacing: AppStyle.Spacing.small) {
+            DeletedAppsWatcherNotice()
             storageCard
             reclaimableCard
         }

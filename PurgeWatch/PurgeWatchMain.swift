@@ -113,6 +113,25 @@ enum PurgeWatchMain {
             let ownerPath = note.object as? String
             MainActor.assumeIsolated { ownerAnnounced(ownerPath) }
         }
+        DistributedNotificationCenter.default().addObserver(
+            forName: RemovedAppHandoff.agentPingNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { answerPing() }
+        }
+    }
+
+    /// Tells Purge this agent is running and watching. A dormant agent (its Purge
+    /// was trashed or moved) stays silent, since it would not notice a removal.
+    private static func answerPing() {
+        guard watcher != nil, let ownPath else { return }
+        DistributedNotificationCenter.default().postNotificationName(
+            RemovedAppHandoff.agentPongNotification,
+            object: ownPath,
+            userInfo: nil,
+            deliverImmediately: true
+        )
     }
 
     private static func checkExecutable() {

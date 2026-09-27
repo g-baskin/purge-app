@@ -1,0 +1,91 @@
+import SwiftUI
+
+/// Sidebar card shown while deleted-app reviews are on but the background watcher
+/// is blocked or not running. Without it the feature fails in silence: an app goes
+/// to the Trash, nothing happens, and the user has no way to learn why. It sits in
+/// the sidebar so it is on every tab, and stays until the problem is fixed or the
+/// feature is turned off.
+struct DeletedAppsWatcherNotice: View {
+    @ObservedObject private var monitor = RemovedAppMonitor.shared
+
+    var body: some View {
+        DeletedAppsWatcherNoticeCard(
+            health: monitor.watcherHealth,
+            isRestarting: monitor.isRestartingWatcher,
+            onFix: { monitor.fixWatcher() },
+            onTurnOff: { monitor.setEnabled(false) }
+        )
+    }
+}
+
+struct DeletedAppsWatcherNoticeCard: View {
+    let health: WatcherHealth
+    let isRestarting: Bool
+    let onFix: () -> Void
+    let onTurnOff: () -> Void
+
+    private enum NoticeFont {
+        static let title = Font.system(size: 12, weight: .semibold, design: .rounded)
+        static let body = Font.system(size: 11, weight: .medium, design: .rounded)
+    }
+
+    var body: some View {
+        if health.needsAttention, let message = health.shortMessage, let fixTitle = health.fixTitle {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppColors.tagCheckText)
+                        .accessibilityHidden(true)
+
+                    Text(WatcherHealth.problemTitle)
+                        .font(NoticeFont.title)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Text(message)
+                    .font(NoticeFont.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, AppStyle.Spacing.xxSmall)
+
+                // Full width, like the Clean button below it: "Open System Settings"
+                // does not fit beside a second button at sidebar width.
+                Button(action: onFix) {
+                    CleaningButtonLabel(
+                        title: isRestarting ? "Restarting…" : fixTitle,
+                        systemImage: nil,
+                        isCleaning: isRestarting,
+                        spinnerTint: AppColors.buttonPrimaryText
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                }
+                .buttonStyle(AppButtonStyle(variant: .filled, isCapsule: true))
+                .disabled(isRestarting)
+                .padding(.top, AppStyle.Spacing.small)
+
+                Button("Turn Off", action: onTurnOff)
+                    .buttonStyle(.plain)
+                    .font(NoticeFont.body)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, AppStyle.Spacing.xSmall)
+                    .help("Stop reviewing leftovers when an app is deleted")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(AppStyle.Spacing.small)
+            .background(
+                RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+                    .fill(AppColors.bgElevated)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+                    .strokeBorder(AppColors.tagCheckText.opacity(0.35), lineWidth: 0.5)
+            }
+            .accessibilityElement(children: .contain)
+            .transition(.opacity)
+        }
+    }
+}

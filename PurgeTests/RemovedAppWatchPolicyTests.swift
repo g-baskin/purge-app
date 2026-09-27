@@ -1,5 +1,6 @@
 import CoreServices
 import Foundation
+import ServiceManagement
 import Testing
 @testable import Purge
 
@@ -318,6 +319,50 @@ struct RemovedAppWatchPolicyTests {
         #expect(RemovedAppMonitor.managesLiveAgent(environment: ["HOME": "/Users/x"]))
         #expect(!RemovedAppMonitor.managesLiveAgent(environment: ["XCTestConfigurationFilePath": "/tmp/x.xctestconfiguration"]))
         #expect(!RemovedAppMonitor.managesLiveAgent(environment: ["XCTestSessionIdentifier": "ABC"]))
+    }
+
+    // MARK: Watcher health
+
+    /// A blocked or stopped watcher misses every removal without a sound, so each
+    /// of those states must read as a problem the user is told about.
+    @Test("Watcher health reports a blocked, stopped, or unregistered watcher")
+    func watcherHealthNamesEachProblem() {
+        func health(_ status: SMAppService.Status, failed: Bool = false, answered: Bool?) -> WatcherHealth {
+            RemovedAppMonitor.watcherHealth(
+                isEnabled: true,
+                status: status,
+                registrationFailed: failed,
+                agentAnswered: answered
+            )
+        }
+        #expect(health(.requiresApproval, answered: nil) == .needsApproval)
+        #expect(health(.requiresApproval, answered: false) == .needsApproval)
+        #expect(health(.notRegistered, answered: nil) == .failedToStart)
+        #expect(health(.notFound, answered: false) == .failedToStart)
+        #expect(health(.enabled, failed: true, answered: nil) == .failedToStart)
+        // Listed as allowed, yet silent for a whole check: not running.
+        #expect(health(.enabled, answered: false) == .notRunning)
+        let problems: [WatcherHealth] = [.needsApproval, .notRunning, .failedToStart]
+        #expect(problems.allSatisfy { $0.needsAttention })
+    }
+
+    @Test("An answer means the watcher runs; no answer yet is not a problem")
+    func watcherHealthTrustsAnAnswer() {
+        #expect(RemovedAppMonitor.watcherHealth(
+            isEnabled: true, status: .enabled, registrationFailed: false, agentAnswered: nil
+        ) == .checking)
+        #expect(RemovedAppMonitor.watcherHealth(
+            isEnabled: true, status: .enabled, registrationFailed: false, agentAnswered: true
+        ) == .running)
+        // What macOS reports can lag; the agent answering is what counts.
+        #expect(RemovedAppMonitor.watcherHealth(
+            isEnabled: true, status: .notFound, registrationFailed: true, agentAnswered: true
+        ) == .running)
+        #expect(RemovedAppMonitor.watcherHealth(
+            isEnabled: false, status: .requiresApproval, registrationFailed: true, agentAnswered: false
+        ) == .off)
+        let fine: [WatcherHealth] = [.off, .checking, .running]
+        #expect(!fine.contains { $0.needsAttention })
     }
 
     // MARK: Agent updates

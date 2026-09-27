@@ -27,10 +27,20 @@ final class RemovedAppMonitor: ObservableObject {
     }
 
     @Published private(set) var isEnabled: Bool
-    /// True when the agent is registered but still waiting on Login Items approval.
-    @Published private(set) var needsApproval = false
+    /// Whether the background watcher is really running, for Settings and the
+    /// sidebar notice. A blocked or stopped watcher misses every removal without a
+    /// sound, so this is the only way the user learns reviews have stopped.
+    @Published private(set) var watcherHealth: WatcherHealth = .off
+    /// True from "Restart Watcher" until the check after it ends.
+    @Published private(set) var isRestartingWatcher = false
+
     /// True when the last register/unregister attempt failed.
-    @Published private(set) var lastRegistrationFailed = false
+    private var lastRegistrationFailed = false
+    /// Whether the agent answered the last check. Nil until a check ends.
+    private var agentAnswered: Bool?
+    /// Whether the agent has answered the check that is running now.
+    private var answeredDuringProbe = false
+    private var probeTask: Task<Void, Never>?
 
     private enum Phase {
         case idle
@@ -126,10 +136,22 @@ final class RemovedAppMonitor: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.processQueue() }
             .store(in: &cancellables)
+        // An approval made in System Settings, or a watcher that stopped while
+        // Purge was in the background, shows up the next time Purge comes forward.
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in self?.refreshAgentStatus() }
+            .store(in: &cancellables)
+        DistributedNotificationCenter.default().publisher(for: RemovedAppHandoff.agentPongNotification)
+            .compactMap { $0.object as? String }
+            .receive(on: RunLoop.main)
+            .sink { [weak self] path in self?.agentAnswered(from: path) }
+            .store(in: &cancellables)
 
         if isEnabled, managesLiveAgent {
             reconcileAgentRegistration()
             drainPendingRemovals()
+        } else {
+            updateHealth()
         }
     }
 
@@ -137,10 +159,24 @@ final class RemovedAppMonitor: ObservableObject {
         guard enabled != isEnabled else { return }
         isEnabled = enabled
         ud.set(enabled, forKey: UDKeys.isEnabled)
-        guard managesLiveAgent else { return }
+        guard managesLiveAgent else {
+            updateHealth()
+            return
+        }
         if enabled {
+            agentAnswered = nil
             reconcileAgentRegistration()
+            // macOS asks for approval in System Settings; take the user there
+            // rather than leave them to find the reason in a caption.
+            if watcherHealth == .needsApproval {
+                openLoginItemsSettings()
+            }
         } else {
+            probeTask?.cancel()
+            probeTask = nil
+            agentAnswered = nil
+            isRestartingWatcher = false
+            updateHealth()
             unregisterAgent()
             queue.removeAll()
             RemovedAppHandoff.clearPending()
@@ -152,16 +188,41 @@ final class RemovedAppMonitor: ObservableObject {
         }
     }
 
-    /// Re-reads the agent's Login Items status. Call when Settings appears and when
-    /// the app becomes active, so an approval made in System Settings shows up here.
+    /// Re-reads the agent's Login Items status and checks the agent answers.
+    /// Runs when Purge comes forward and when Settings appears.
     func refreshAgentStatus() {
         guard isEnabled, managesLiveAgent else {
-            needsApproval = false
+            updateHealth()
             return
         }
         let status = agentService.status
-        needsApproval = status == .requiresApproval
         if status == .enabled { lastRegistrationFailed = false }
+        // Switched off in System Settings: an answer from before says nothing now.
+        if status == .requiresApproval { agentAnswered = nil }
+        updateHealth()
+        probeAgent()
+    }
+
+    /// Registers the agent again from scratch: the fix offered when it is not
+    /// running. A watcher launchd stopped restarting starts again this way.
+    func restartWatcher() {
+        guard isEnabled, managesLiveAgent, !isRestartingWatcher else { return }
+        isRestartingWatcher = true
+        probeTask?.cancel()
+        probeTask = nil
+        Task {
+            try? await agentService.unregister()
+            guard isEnabled else {
+                isRestartingWatcher = false
+                return
+            }
+            agentAnswered = nil
+            reconcileAgentRegistration()
+            if watcherHealth == .needsApproval {
+                isRestartingWatcher = false
+                openLoginItemsSettings()
+            }
+        }
     }
 
     func openLoginItemsSettings() {
@@ -204,8 +265,8 @@ final class RemovedAppMonitor: ObservableObject {
                 lastRegistrationFailed = true
             }
         }
-        refreshAgentStatus()
         announceAgentOwner()
+        refreshAgentStatus()
     }
 
     /// Tells an agent started from another copy of Purge to exit, so launchd
@@ -228,8 +289,88 @@ final class RemovedAppMonitor: ObservableObject {
             } catch {
                 lastRegistrationFailed = true
             }
-            needsApproval = false
+            updateHealth()
         }
+    }
+
+    // MARK: Watcher health
+
+    /// Checks attempted before the agent counts as not running. After an update
+    /// the old agent needs two of its 10-second checks to see it was replaced,
+    /// then launchd starts the new one, so this allows 45 seconds.
+    private static let probeAttempts = 15
+    private static let probeInterval: Duration = .seconds(3)
+
+    /// Asks the agent to answer, repeating until it does or the attempts run out.
+    /// The last known answer stands while a check runs, so nothing flickers.
+    private func probeAgent() {
+        guard isEnabled, managesLiveAgent, probeTask == nil else { return }
+        answeredDuringProbe = false
+        probeTask = Task { [weak self] in
+            for _ in 0..<Self.probeAttempts {
+                guard let self, !Task.isCancelled else { return }
+                if self.answeredDuringProbe || !self.isEnabled { break }
+                DistributedNotificationCenter.default().postNotificationName(
+                    RemovedAppHandoff.agentPingNotification,
+                    object: nil,
+                    userInfo: nil,
+                    deliverImmediately: true
+                )
+                try? await Task.sleep(for: Self.probeInterval)
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.probeTask = nil
+            self.isRestartingWatcher = false
+            if self.isEnabled, !self.answeredDuringProbe {
+                self.agentAnswered = false
+            }
+            self.updateHealth()
+        }
+    }
+
+    /// An answer from an agent in another copy of Purge does not count: that one
+    /// exits once it hears which copy owns the agent.
+    private func agentAnswered(from path: String) {
+        let ownAgent = RemovedAppHandoff.agentExecutable(inApp: Bundle.main.bundleURL).path
+        // The agent reports `realpath`, which keeps `/private` on `/tmp` and `/var`
+        // paths; `resolvingSymlinksInPath` drops it, so both sides go through `realpath`.
+        guard isEnabled, Self.realPath(path) == Self.realPath(ownAgent) else { return }
+        answeredDuringProbe = true
+        agentAnswered = true
+        isRestartingWatcher = false
+        updateHealth()
+    }
+
+    private nonisolated static func realPath(_ path: String) -> String {
+        guard let real = realpath(path, nil) else { return path }
+        defer { free(real) }
+        return String(cString: real)
+    }
+
+    private func updateHealth() {
+        let live = isEnabled && managesLiveAgent
+        watcherHealth = Self.watcherHealth(
+            isEnabled: live,
+            status: live ? agentService.status : .notRegistered,
+            registrationFailed: lastRegistrationFailed,
+            agentAnswered: agentAnswered
+        )
+    }
+
+    /// Reads the watcher's state from what macOS reports and whether the agent
+    /// answered. An answer means it is watching, whatever else is reported;
+    /// silence only counts once a whole check has gone unanswered.
+    nonisolated static func watcherHealth(
+        isEnabled: Bool,
+        status: SMAppService.Status,
+        registrationFailed: Bool,
+        agentAnswered: Bool?
+    ) -> WatcherHealth {
+        guard isEnabled else { return .off }
+        if agentAnswered == true { return .running }
+        if status == .requiresApproval { return .needsApproval }
+        if registrationFailed || status == .notRegistered || status == .notFound { return .failedToStart }
+        return agentAnswered == false ? .notRunning : .checking
     }
 
     // MARK: Queue
@@ -451,6 +592,78 @@ final class RemovedAppMonitor: ObservableObject {
             NSApp.terminate(nil)
         } else {
             NSApp.hide(nil)
+        }
+    }
+}
+
+// MARK: - Watcher health
+
+/// The background watcher's state, as Settings and the sidebar describe it.
+nonisolated enum WatcherHealth: Equatable, Sendable {
+    /// Deleted-app reviews are turned off.
+    case off
+    /// Turned on, and the first check has not ended yet.
+    case checking
+    /// The watcher answered: removals are being noticed.
+    case running
+    /// Switched off under Login Items in System Settings, or never approved there.
+    case needsApproval
+    /// Allowed, but the watcher did not answer: crashed, or launchd stopped
+    /// restarting it.
+    case notRunning
+    /// macOS did not register the watcher.
+    case failedToStart
+
+    /// Removals are being missed, and the user can do something about it.
+    var needsAttention: Bool {
+        switch self {
+        case .needsApproval, .notRunning, .failedToStart: return true
+        case .off, .checking, .running: return false
+        }
+    }
+
+    static let problemTitle = "Deleted-app reviews paused"
+
+    var problemMessage: String? {
+        switch self {
+        case .needsApproval:
+            return "macOS is stopping Purge from running in the background. In System Settings, open Login Items and switch Purge on."
+        case .notRunning:
+            return "Purge's background watcher isn't running, so deleted apps go unnoticed."
+        case .failedToStart:
+            return "Purge couldn't start its background watcher, so deleted apps go unnoticed."
+        case .off, .checking, .running:
+            return nil
+        }
+    }
+
+    /// The same problem in a line, for the sidebar notice.
+    var shortMessage: String? {
+        switch self {
+        case .needsApproval: return "macOS is blocking Purge's background watcher, so deleted apps go unnoticed."
+        case .notRunning: return "The background watcher isn't running, so deleted apps go unnoticed."
+        case .failedToStart: return "The background watcher couldn't start, so deleted apps go unnoticed."
+        case .off, .checking, .running: return nil
+        }
+    }
+
+    var fixTitle: String? {
+        switch self {
+        case .needsApproval: return "Open System Settings"
+        case .notRunning: return "Restart Watcher"
+        case .failedToStart: return "Try Again"
+        case .off, .checking, .running: return nil
+        }
+    }
+}
+
+extension RemovedAppMonitor {
+    /// The one action that fixes the current problem.
+    func fixWatcher() {
+        switch watcherHealth {
+        case .needsApproval: openLoginItemsSettings()
+        case .notRunning, .failedToStart: restartWatcher()
+        case .off, .checking, .running: break
         }
     }
 }
