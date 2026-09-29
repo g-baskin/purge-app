@@ -7,14 +7,49 @@ struct OnboardingFlowView: View {
   @EnvironmentObject private var diskStore: DiskSummaryStore
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-  @State private var step: OnboardingStep = .welcome
+  @State private var step: OnboardingStep
   @StateObject private var revealController = OnboardingScanRevealController()
   @State private var celebrationMovedToTrashBytes: Int64 = 0
   @State private var pinnedCleanupCandidates: [PurgeStore.DeletionCandidate] = []
   @State private var resultsSnapshot: OnboardingResultsSnapshot?
   @State private var isResultsCleaning = false
+  /// Where the flow goes once the look-deeper step is done: home after a clean, or
+  /// into App Caches for someone who chose to review the list first.
+  @State private var lookDeeperExit: LookDeeperExit = .home
+  /// Whether anything was cleaned before the look-deeper step, which sets its
+  /// opening line.
+  @State private var didCleanBeforeLookDeeper = false
+
+  private enum LookDeeperExit: String {
+    case home
+    case review
+  }
 
   @AppStorage("onboarding.pendingCelebration") private var pendingCelebration = false
+  /// Set when the flow reaches the look-deeper step. A relaunch comes back to it:
+  /// macOS may offer to quit and reopen Purge after the Settings toggle, where the
+  /// reveal picks up the grant, and someone who quits there before opening
+  /// Settings has still finished the scan and maybe a clean.
+  @AppStorage(Self.pendingDeeperScanKey) private var pendingDeeperScan = false
+  static let pendingDeeperScanKey = "onboarding.pendingDeeperScan"
+  /// Saved with `pendingDeeperScan` so the relaunch keeps where the step leads
+  /// and how it opens: "Review everything first" still ends in App Caches, and a
+  /// clean that already happened still gets "That was the easy part".
+  static let lookDeeperExitKey = "onboarding.lookDeeperExit"
+  static let didCleanBeforeLookDeeperKey = "onboarding.didCleanBeforeLookDeeper"
+
+  init(hasCompletedOnboarding: Binding<Bool>, isExitingToHome: Binding<Bool>) {
+    _hasCompletedOnboarding = hasCompletedOnboarding
+    _isExitingToHome = isExitingToHome
+    let defaults = UserDefaults.standard
+    let resumesLookDeeper = defaults.bool(forKey: Self.pendingDeeperScanKey)
+    _step = State(initialValue: resumesLookDeeper ? .lookDeeper : .welcome)
+    if resumesLookDeeper {
+      let exit = defaults.string(forKey: Self.lookDeeperExitKey).flatMap(LookDeeperExit.init(rawValue:))
+      _lookDeeperExit = State(initialValue: exit ?? .home)
+      _didCleanBeforeLookDeeper = State(initialValue: defaults.bool(forKey: Self.didCleanBeforeLookDeeperKey))
+    }
+  }
 
   var body: some View {
   ZStack {
@@ -23,7 +58,10 @@ struct OnboardingFlowView: View {
 
     VStack(spacing: 0) {
       stepBody
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Results sizes to its content so it and the footer center as one group.
+        // Filling the height left the footer pinned to the bottom with a wide gap
+        // under the category list.
+        .frame(maxWidth: .infinity, maxHeight: step == .results ? nil : .infinity)
         .padding(.horizontal, OnboardingLayout.horizontalPadding)
         .padding(.top, OnboardingLayout.verticalPadding)
 
@@ -31,12 +69,16 @@ struct OnboardingFlowView: View {
         footer
           .padding(.horizontal, OnboardingLayout.horizontalPadding)
           .padding(.bottom, OnboardingLayout.verticalPadding)
-          .padding(.top, step == .results ? AppStyle.Spacing.xSmall : AppStyle.Spacing.medium)
+          .padding(.top, step == .results ? OnboardingLayout.resultsFooterGap : AppStyle.Spacing.medium)
       }
     }
+    .frame(maxHeight: .infinity)
 
     if let session = store.interactiveSafeCleanupSession {
-      SafeCleanupCelebrationOverlay(session: session) {
+      SafeCleanupCelebrationOverlay(
+        session: session,
+        doneTitle: store.hasFullDiskAccess ? "Done" : "Continue"
+      ) {
         completeResultsCleanupCelebration()
       }
       .transition(reduceMotion ? .opacity : .safeCleanupCelebrationBlur)
@@ -61,7 +103,7 @@ struct OnboardingFlowView: View {
 
   private var showsFooter: Bool {
     switch step {
-    case .firstScan, .cleaning, .celebration:
+    case .firstScan, .cleaning, .celebration, .lookDeeper:
       return false
     default:
       return true
@@ -74,8 +116,6 @@ struct OnboardingFlowView: View {
       switch step {
       case .welcome:
         OnboardingWelcomeStep()
-      case .permissions:
-        OnboardingPermissionsStep()
       case .firstScan:
         OnboardingFirstScanStep(
           revealController: revealController,
@@ -92,6 +132,13 @@ struct OnboardingFlowView: View {
         OnboardingCelebrationView(bytesMovedToTrash: celebrationMovedToTrashBytes) {
           finishOnboarding()
         }
+      case .lookDeeper:
+        LookDeeperView(
+          context: .onboarding(didClean: didCleanBeforeLookDeeper),
+          onNotNow: exitAfterLookDeeper,
+          onFinished: exitAfterLookDeeper
+        )
+        .frame(maxHeight: .infinity)
       }
     }
     .id(step)
@@ -104,31 +151,15 @@ struct OnboardingFlowView: View {
       switch step {
       case .welcome:
         OnboardingPrimaryButton(title: "Get started", systemImage: "arrow.forward") {
-          advance(to: .permissions)
-        }
-      case .permissions:
-        OnboardingPrimaryButton(
-          title: "Run my first scan",
-          systemImage: "magnifyingglass",
-          isEnabled: store.hasFullDiskAccess
-        ) {
-          startFirstScan()
+          advance(to: .firstScan)
         }
       case .results:
-        VStack(spacing: AppStyle.Spacing.xxSmall) {
-          Text("Your documents, photos, and projects are never touched.")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-          Text("Cleaned items move to your Trash so you can recover anything. Empty Trash to reclaim the space.")
-            .font(.subheadline)
-            .foregroundStyle(.tertiary)
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-        }
+        // The label says where things go, the way Finder's "Move to Trash" does, so
+        // no caption has to explain it. Emptying the Trash is covered afterwards by
+        // the celebration, which is when it matters.
         OnboardingPrimaryButton(
-          title: isResultsCleaning ? "Cleaning..." : cleanNowTitle,
+          title: isResultsCleaning ? "Moving to Trash..." : cleanNowTitle,
+          leadingSystemImage: isResultsCleaning ? nil : "trash",
           isLoading: isResultsCleaning
         ) {
           startResultsCleanup()
@@ -147,29 +178,62 @@ struct OnboardingFlowView: View {
   private var cleanNowTitle: String {
     let bytes = resultsSnapshot?.totalBytes ?? store.safeRecoverableBytes
     if bytes > 0 {
-      return "Clean \(formatBytes(bytes)) now"
+      return "Move \(formatBytes(bytes)) to Trash"
     }
-    return "Clean now"
-  }
-
-  private func startFirstScan() {
-    store.refreshPermission()
-    guard store.hasFullDiskAccess else { return }
-    advance(to: .firstScan)
+    // Nothing to move, so the button only moves the flow on.
+    return "Continue"
   }
 
   private func exitToReviewPath() {
-    pendingCelebration = true
-    UserDefaults.standard.set(SafetyFilter.all.rawValue, forKey: "filter.appCaches")
-    store.selectedTab = .appCaches
+    lookDeeperExit = .review
+    guard store.hasFullDiskAccess else {
+      advance(to: .lookDeeper)
+      return
+    }
+    exitAfterLookDeeper()
+  }
 
-    beginExitToHome()
+  /// Purge can quit anywhere on the look-deeper step, and macOS may quit and
+  /// reopen it once the toggle is on. Everything the step needs on the other side
+  /// goes into defaults, not just the step itself.
+  private func rememberLookDeeperForRelaunch() {
+    let defaults = UserDefaults.standard
+    defaults.set(lookDeeperExit.rawValue, forKey: Self.lookDeeperExitKey)
+    defaults.set(didCleanBeforeLookDeeper, forKey: Self.didCleanBeforeLookDeeperKey)
+    pendingDeeperScan = true
+  }
+
+  /// Leaves onboarding the way the user chose before the look-deeper step.
+  private func exitAfterLookDeeper() {
+    pendingDeeperScan = false
+    UserDefaults.standard.removeObject(forKey: Self.lookDeeperExitKey)
+    UserDefaults.standard.removeObject(forKey: Self.didCleanBeforeLookDeeperKey)
+    switch lookDeeperExit {
+    case .home:
+      finishOnboarding()
+    case .review:
+      pendingCelebration = true
+      UserDefaults.standard.set(SafetyFilter.all.rawValue, forKey: "filter.appCaches")
+      store.selectedTab = .appCaches
+      beginExitToHome()
+    }
   }
 
   private func startResultsCleanup() {
     guard !isResultsCleaning else { return }
     let candidates = store.manualSafeCleanupCandidates()
-    guard !candidates.isEmpty else { return }
+    // A tidy Mac can have nothing to clean. Nothing moved, so without access the
+    // ask opens with "Some clutter hides" rather than "That was"; with access
+    // there is nothing left to offer and onboarding is done.
+    guard !candidates.isEmpty else {
+      if store.hasFullDiskAccess {
+        finishOnboarding()
+      } else {
+        lookDeeperExit = .home
+        advance(to: .lookDeeper)
+      }
+      return
+    }
 
     pinnedCleanupCandidates = candidates
     resultsSnapshot = OnboardingResultsSnapshot(
@@ -197,6 +261,17 @@ struct OnboardingFlowView: View {
 
   private func completeResultsCleanupCelebration() {
     isResultsCleaning = false
+
+    // Without access, the celebration hands over to the look-deeper step instead
+    // of the main window. The overlay fades out over it.
+    if !store.hasFullDiskAccess {
+      lookDeeperExit = .home
+      didCleanBeforeLookDeeper = true
+      clearCleanupPresentationState()
+      store.dismissInteractiveSafeCleanupCelebration()
+      advance(to: .lookDeeper)
+      return
+    }
 
     if reduceMotion {
       store.dismissInteractiveSafeCleanupCelebration()
@@ -251,6 +326,7 @@ struct OnboardingFlowView: View {
   }
 
   private func advance(to next: OnboardingStep) {
+    if next == .lookDeeper { rememberLookDeeperForRelaunch() }
     if reduceMotion {
       step = next
     } else {

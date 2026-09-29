@@ -13,10 +13,39 @@ enum GitRepositoryFinder {
         return nil
     }
 
+    /// `lstat`, not `fileExists`: a `.git` that is a link into Documents must not
+    /// be followed before a limited scan has checked it.
     nonisolated private static func hasGit(at directory: URL) -> Bool {
-        let fm = FileManager.default
         let dotGit = directory.appendingPathComponent(".git", isDirectory: false)
-        return fm.fileExists(atPath: dotGit.path)
+        return (try? FileManager.default.attributesOfItem(atPath: dotGit.path)) != nil
+    }
+
+    /// Where `git` reads this repository's metadata. Usually `<repo>/.git`, but in a
+    /// linked worktree `.git` is a file naming a git dir inside the main checkout,
+    /// which can be anywhere on disk. Nil when `.git` is a file with no `gitdir:` line.
+    ///
+    /// The `gitdir:` path comes back as written, joined to the repository when it
+    /// is relative, with `..` left in. `standardizedFileURL` would stat it, and
+    /// that stat lands in the folder a limited scan is deciding whether to touch.
+    /// `ProtectedLocations.isReadable` resolves it with `readlink` alone.
+    nonisolated static func gitDirectory(forRepository repository: URL) -> URL? {
+        let dotGit = repository.appendingPathComponent(".git", isDirectory: false)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: dotGit.path, isDirectory: &isDirectory) else {
+            return nil
+        }
+        if isDirectory.boolValue { return repository.appendingPathComponent(".git", isDirectory: true) }
+
+        guard let text = try? String(contentsOf: dotGit, encoding: .utf8) else { return nil }
+        for rawLine in text.split(whereSeparator: \.isNewline) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            guard line.lowercased().hasPrefix("gitdir:") else { continue }
+            let path = line.dropFirst("gitdir:".count).trimmingCharacters(in: .whitespaces)
+            guard !path.isEmpty else { return nil }
+            let absolute = path.hasPrefix("/") ? path : repository.path + "/" + path
+            return URL(fileURLWithPath: absolute, isDirectory: true)
+        }
+        return nil
     }
 }
 
@@ -51,6 +80,14 @@ enum GitWarningPolicy {
 /// Runs `git` off the MainActor so scanning never stalls the UI.
 actor GitStatusChecker {
     private var cache: [String: GitWorktreeStatus] = [:]
+    private var access: ScanAccess = .full
+
+    /// Set at the start of each scan. In a limited scan, a worktree whose git dir
+    /// sits in a protected folder is reported `.unknown` instead: running `git`
+    /// there would make macOS prompt on Purge's behalf.
+    func setAccess(_ access: ScanAccess) {
+        self.access = access
+    }
 
     /// Status used to decide whether to show "Unfinished local changes nearby".
     /// Skips the check entirely for known rebuildable folders, and only flags
@@ -84,6 +121,18 @@ actor GitStatusChecker {
             guard parent.path == repoRoot.path else {
                 result[pathKey] = .clean
                 continue
+            }
+
+            if access == .limited {
+                // `.git` can itself be a link, so it is checked before it is read
+                // for a `gitdir:` line, and the git dir it names after that.
+                let dotGit = repoRoot.appendingPathComponent(".git", isDirectory: false)
+                guard ProtectedLocations.isReadable(dotGit, access: .limited),
+                      let gitDir = GitRepositoryFinder.gitDirectory(forRepository: repoRoot),
+                      ProtectedLocations.isReadable(gitDir, access: .limited) else {
+                    result[pathKey] = .unknown
+                    continue
+                }
             }
 
             pathToRepoRoot[pathKey] = repoRoot.path

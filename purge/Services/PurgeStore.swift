@@ -292,7 +292,24 @@ final class PurgeStore: ObservableObject {
     @Published private(set) var interactiveSafeCleanupTargetPaths: Set<String> = []
     @Published private(set) var interactiveSafeCleanupRemovedPaths: Set<String> = []
     @Published private(set) var interactiveSafeCleanupMovedToTrashBytes: Int64?
-    @Published var hasFullDiskAccess = PermissionChecker().hasFullDiskAccess()
+    @Published var hasFullDiskAccess = PermissionChecker().hasFullDiskAccess() {
+        didSet {
+            readableWithoutFullDiskAccess.removeAll()
+            if oldValue, !hasFullDiskAccess { dropRowsLockedByRevokedAccess() }
+        }
+    }
+    /// `ProtectedLocations.isReadable` answers by stored path. The Clean-button
+    /// filter asks while views render, and each answer costs a `readlink` per
+    /// path component, so it is asked once. Emptied when access changes and when
+    /// a scan starts, since a link can be repointed between scans.
+    private var readableWithoutFullDiskAccess: [String: Bool] = [:]
+    /// Shows `LookDeeperSheet`, the main window's one place to ask for Full Disk
+    /// Access. Set by the sidebar notice, the locked tabs, and a deleted-app review
+    /// that needs access to find leftovers.
+    @Published var isLookDeeperPresented = false
+    /// Set after access is granted outside the look-deeper screen and the rescan
+    /// lands. The sidebar shows it once, until dismissed.
+    @Published var accessGrantFindings: LockedPlacesFindings?
     /// Lifetime bytes Purge has moved to the trash. Not a reclaim figure: most of it
     /// only becomes free space once the user empties the trash.
     @Published var totalMovedToTrashBytes: Int64 = 0
@@ -543,7 +560,18 @@ final class PurgeStore: ObservableObject {
     func manualSafeCleanupCandidates() -> [DeletionCandidate] {
         var candidates: [DeletionCandidate] = []
 
+        // Revoking access already drops locked rows (`dropRowsLockedByRevokedAccess`).
+        // This keeps the Clean buttons, their animation and the Trash in step if a
+        // row slips through, by the rule the cleanup itself applies. Checked before
+        // a candidate is built, since building one standardizes its path, and that
+        // stat through a link into Documents is the prompt.
+        let isLimited = !hasFullDiskAccess
+        func isReachable(_ url: URL) -> Bool {
+            !isLimited || isReadableWithoutFullDiskAccess(url)
+        }
+
         for artifact in projectGroups.flatMap(\.artifacts) {
+            guard isReachable(artifact.path) else { continue }
             guard artifact.safetyInfo.level == .safe else { continue }
             guard artifact.reinstallSafety != .missingLockfile else { continue }
             guard artifact.gitStatus == .clean else { continue }
@@ -552,7 +580,7 @@ final class PurgeStore: ObservableObject {
 
         for tool in devTools where tool.isDetected && tool.safetyInfo.level == .safe {
             guard tool.reinstallSafety != .missingLockfile else { continue }
-            for url in tool.paths {
+            for url in tool.paths where isReachable(url) {
                 let candidate = devToolDeletionCandidate(tool, path: url)
                 guard candidate.gitStatus == .clean else { continue }
                 candidates.append(candidate)
@@ -562,7 +590,7 @@ final class PurgeStore: ObservableObject {
         for item in cacheItems where item.safetyInfo.level == .safe {
             guard item.reinstallSafety != .missingLockfile else { continue }
             guard item.gitStatus == .clean else { continue }
-            for location in item.locations {
+            for location in item.locations where isReachable(location.path) {
                 let path = location.path.standardizedFileURL
                 guard DeletionSafetyPolicy.isOfferedForCleanup(path) else { continue }
                 candidates.append(
@@ -668,6 +696,9 @@ final class PurgeStore: ObservableObject {
     }
 
     func presentDeletionSheetResolvingGit(candidates: [DeletionCandidate]) async {
+        // The checker keeps the access of the last scan. Access may have been
+        // turned off since, and `git status` in a git dir under Documents prompts.
+        await gitChecker.setAccess(currentScanAccess())
         var resolved = candidates
         for index in resolved.indices where resolved[index].gitStatus == .unknown {
             resolved[index].gitStatus = await gitChecker.cleanupStatus(for: resolved[index].path)
@@ -746,8 +777,12 @@ final class PurgeStore: ObservableObject {
     }
 
     private func executeStagedDeletion(trigger: CleanupTrigger) async {
-        guard let candidates = stagedDeletionCandidates else { return }
+        guard let staged = stagedDeletionCandidates else { return }
         stagedDeletionCandidates = nil
+        // Same rule as safe cleanup: a row from a full scan whose access has since
+        // been turned off stays where it is. Moving it would prompt.
+        let access = currentScanAccess()
+        let candidates = staged.filter { ProtectedLocations.isReadable($0.path, access: access) }
         let urls = candidates.map(\.path).map(\.standardizedFileURL)
         guard !urls.isEmpty else { return }
 
@@ -1022,11 +1057,35 @@ final class PurgeStore: ObservableObject {
     private func reflectDeletionReportInScanState(_ report: DeletionReport) {
         let deletedPaths = Set(report.deletedItems.map { URL(fileURLWithPath: $0.path).standardizedFileURL.path })
         guard !deletedPaths.isEmpty else { return }
+        removeScanRows { deletedPaths.contains($0.standardizedFileURL.path) }
+    }
 
+    /// Full Disk Access was turned off with a full scan's rows still up. Those rows
+    /// point into folders Purge can no longer read, so they go now rather than sit
+    /// next to the "Limited scan" notice, counted in totals and offered by Clean
+    /// buttons that would then skip them. Uses the same rule as the scans and the
+    /// cleanups, symlinks included.
+    private func dropRowsLockedByRevokedAccess() {
+        // `isReadable` reads links only. Standardizing the path first would stat
+        // it, and through a symlink into Documents that stat is itself the prompt.
+        removeScanRows { !isReadableWithoutFullDiskAccess($0) }
+        scanSelection.cacheIDs.formIntersection(cacheItems.map(\.id))
+        scanSelection.artifactIDs.formIntersection(projectGroups.flatMap(\.artifacts).map(\.id))
+    }
+
+    private func isReadableWithoutFullDiskAccess(_ url: URL) -> Bool {
+        if let known = readableWithoutFullDiskAccess[url.path] { return known }
+        let readable = ProtectedLocations.isReadable(url, access: .limited)
+        readableWithoutFullDiskAccess[url.path] = readable
+        return readable
+    }
+
+    /// Drops every scan row whose path `isRemoved` matches, in place, so the lists
+    /// and totals update without a rescan. Paths are passed as stored, so a caller
+    /// that must not touch the disk never has to.
+    private func removeScanRows(where isRemoved: (URL) -> Bool) {
         stagedGeneralCacheItems = stagedGeneralCacheItems.compactMap { item in
-            let remaining = item.locations.filter {
-                !deletedPaths.contains($0.path.standardizedFileURL.path)
-            }
+            let remaining = item.locations.filter { !isRemoved($0.path) }
             guard !remaining.isEmpty else { return nil }
             guard remaining.count != item.locations.count else { return item }
             return item.withLocations(remaining)
@@ -1034,24 +1093,22 @@ final class PurgeStore: ObservableObject {
 
         withAnimation(.easeInOut(duration: 0.2)) {
             cacheItems = cacheItems.compactMap { item in
-                let remaining = item.locations.filter {
-                    !deletedPaths.contains($0.path.standardizedFileURL.path)
-                }
+                let remaining = item.locations.filter { !isRemoved($0.path) }
                 guard !remaining.isEmpty else { return nil }
                 guard remaining.count != item.locations.count else { return item }
                 return item.withLocations(remaining)
             }
 
             devTools = devTools.map { tool in
-                let remainingPaths = tool.paths.filter {
-                    !deletedPaths.contains($0.standardizedFileURL.path)
-                }
+                let remainingPaths = tool.paths.filter { !isRemoved($0) }
                 let pathSizes = tool.pathSizeBytesByPath.filter { key, _ in
                     remainingPaths.contains { $0.standardizedFileURL.path == key }
                 }
                 let newSize = pathSizes.values.reduce(Int64(0), +)
                 let stillDetected = !remainingPaths.isEmpty && newSize > 0
-                if newSize == tool.sizeBytes, stillDetected == tool.isDetected {
+                if remainingPaths.count == tool.paths.count,
+                   newSize == tool.sizeBytes,
+                   stillDetected == tool.isDetected {
                     return tool
                 }
                 return DevTool(
@@ -1071,18 +1128,16 @@ final class PurgeStore: ObservableObject {
             let detectedToolIDs = Set(devTools.filter(\.isDetected).map(\.id))
             scanSelection.devToolIDs.formIntersection(detectedToolIDs)
 
-            simulatorDevices.removeAll { deletedPaths.contains($0.folderURL.standardizedFileURL.path) }
+            simulatorDevices.removeAll { isRemoved($0.folderURL) }
 
             var groups = projectGroups
             for gi in groups.indices {
-                groups[gi].artifacts.removeAll { deletedPaths.contains($0.path.standardizedFileURL.path) }
+                groups[gi].artifacts.removeAll { isRemoved($0.path) }
             }
             projectGroups = groups.filter { !$0.artifacts.isEmpty }
         }
 
-        for path in deletedPaths {
-            devToolRepoStatusByPath.removeValue(forKey: path)
-        }
+        devToolRepoStatusByPath = devToolRepoStatusByPath.filter { !isRemoved(URL(fileURLWithPath: $0.key)) }
 
         if lastScanCompletedAt != nil {
             persistLastScanSafeRecoverableBytes()
@@ -1143,6 +1198,7 @@ final class PurgeStore: ObservableObject {
     func userConfirmedUnknownDeletionFlow() async {
         guard let payload = pendingUnknownDeletion else { return }
         pendingUnknownDeletion = nil
+        await gitChecker.setAccess(currentScanAccess())
         var resolved = payload.candidates
         for idx in resolved.indices where resolved[idx].gitStatus == .unknown {
             resolved[idx].gitStatus = await gitChecker.cleanupStatus(for: resolved[idx].path)
@@ -2222,8 +2278,8 @@ final class PurgeStore: ObservableObject {
     ///
     /// The probe lists `~/Library/Safari`, `~/Library/Containers`, and
     /// `~/Library/Application Support`; on a real machine those hold hundreds of
-    /// entries, so it is genuine filesystem work. The onboarding permissions step polls
-    /// it once a second while on screen, and running it inline on the main actor showed
+    /// entries, so it is genuine filesystem work. `LookDeeperView` polls it once a second
+    /// while on screen (the onboarding permissions step used to), and running it inline on the main actor showed
     /// up in profiles as a periodic hitch during exactly the phase users described as
     /// laggy. Publishing the result is left to the caller so it can animate the change.
     nonisolated func probeFullDiskAccess() async -> Bool {
@@ -2244,33 +2300,38 @@ final class PurgeStore: ObservableObject {
         if granted != hasFullDiskAccess { hasFullDiskAccess = granted }
     }
 
-    func scanGeneral() async {
+    /// The access the next scan runs with. Refreshes the published flag on the way,
+    /// so the UI and the scan never disagree about what was readable.
+    private func currentScanAccess() -> ScanAccess {
         refreshPermission()
-        guard hasFullDiskAccess else { return }
+        return hasFullDiskAccess ? .full : .limited
+    }
+
+    func scanGeneral() async {
+        let access = currentScanAccess()
         scanGeneration += 1
         let generation = scanGeneration
         scanPhase = .scanning
         clearGeneralScanState()
-        await runGeneralScan(generation: generation)
+        await runGeneralScan(generation: generation, access: access)
         await finishStandaloneScanIfCurrent(generation: generation)
     }
 
     func scanDeveloper() async {
-        refreshPermission()
-        guard hasFullDiskAccess else { return }
+        let access = currentScanAccess()
         scanGeneration += 1
         let generation = scanGeneration
         scanPhase = .scanning
         clearDeveloperScanState()
-        await runDeveloperScan(generation: generation)
+        await runDeveloperScan(generation: generation, access: access)
         await finishStandaloneScanIfCurrent(generation: generation)
     }
 
     func scanAll() async {
-        // Every scan path funnels through here or the standalone variants; without
-        // FDA the walk of user content folders would fire per-folder TCC prompts.
-        refreshPermission()
-        guard hasFullDiskAccess else { return }
+        // Every scan path funnels through here or the standalone variants. Without
+        // Full Disk Access the scanners run limited and stay out of the folders that
+        // would fire per-folder TCC prompts; see `ScanAccess`.
+        let access = currentScanAccess()
         let previousTask = scanTask
         let previousGeneration = scanGeneration
         if let previousTask, !previousTask.isCancelled {
@@ -2291,7 +2352,7 @@ final class PurgeStore: ObservableObject {
         let generation = scanGeneration
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.runFullScan(generation: generation)
+            await self.runFullScan(generation: generation, access: access)
         }
         scanTask = task
         await task.value
@@ -2300,7 +2361,7 @@ final class PurgeStore: ObservableObject {
         }
     }
 
-    private func runFullScan(generation: Int) async {
+    private func runFullScan(generation: Int, access: ScanAccess) async {
         let fullStart = Date()
         ScanPhaseTiming.log("runFullScan started")
         scanCompletionHideTask?.cancel()
@@ -2316,19 +2377,21 @@ final class PurgeStore: ObservableObject {
             ScanPhaseTiming.finish("runFullScan total", since: fullStart)
         }
 
-        await runGeneralScan(generation: generation)
+        await runGeneralScan(generation: generation, access: access)
         guard !Task.isCancelled, scanGeneration == generation else { return }
-        await runDeveloperScan(generation: generation)
+        await runDeveloperScan(generation: generation, access: access)
         guard !Task.isCancelled, scanGeneration == generation else { return }
         finishScan(generation: generation)
     }
 
-    private func runGeneralScan(generation: Int) async {
+    private func runGeneralScan(generation: Int, access: ScanAccess) async {
         let generalStart = Date()
         scanCompletionHideTask?.cancel()
         errorMessage = nil
         isScanningGeneral = true
+        readableWithoutFullDiskAccess.removeAll()
         await gitChecker.clearSessionCache()
+        await gitChecker.setAccess(access)
         defer {
             if scanGeneration == generation {
                 isScanningGeneral = false
@@ -2342,7 +2405,7 @@ final class PurgeStore: ObservableObject {
         let coalesce = CacheScanCoalesceBuffers()
         defer { coalesce.debounceTask?.cancel() }
 
-        for await event in cacheScanner.scanGeneralStream() {
+        for await event in cacheScanner.scanGeneralStream(access: access) {
             guard scanGeneration == generation, !Task.isCancelled else { return }
             switch event {
             case .status(let status):
@@ -2376,13 +2439,15 @@ final class PurgeStore: ObservableObject {
         )
     }
 
-    private func runDeveloperScan(generation: Int) async {
+    private func runDeveloperScan(generation: Int, access: ScanAccess) async {
         let developerStart = Date()
         scanCompletionHideTask?.cancel()
         errorMessage = nil
         simulatorSizingGeneration += 1
         isScanningDeveloper = true
+        readableWithoutFullDiskAccess.removeAll()
         await gitChecker.clearSessionCache()
+        await gitChecker.setAccess(access)
         defer {
             if scanGeneration == generation {
                 isScanningDeveloper = false
@@ -2398,7 +2463,7 @@ final class PurgeStore: ObservableObject {
         let coalesce = DeveloperScanCoalesceBuffers()
         defer { coalesce.debounceTask?.cancel() }
 
-        for await event in devScanner.scanDevToolsStream() {
+        for await event in devScanner.scanDevToolsStream(access: access) {
             guard scanGeneration == generation, !Task.isCancelled else { return }
             switch event {
             case .status(let status):
@@ -2451,10 +2516,10 @@ final class PurgeStore: ObservableObject {
             )
         }
 
-        startProjectDiscovery(generation: generation)
+        startProjectDiscovery(generation: generation, access: access)
     }
 
-    private func startProjectDiscovery(generation: Int) {
+    private func startProjectDiscovery(generation: Int, access: ScanAccess) {
         projectDiscoveryTask?.cancel()
         projectDiscoveryTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -2473,7 +2538,7 @@ final class PurgeStore: ObservableObject {
             let coalesce = ProjectGroupCoalesceBuffers()
             defer { coalesce.debounceTask?.cancel() }
 
-            for await event in devScanner.discoverProjectsStream() {
+            for await event in devScanner.discoverProjectsStream(access: access) {
                 guard scanGeneration == generation, !Task.isCancelled else { return }
                 switch event {
                 case .projectGroupFound(let group):
@@ -2555,8 +2620,10 @@ final class PurgeStore: ObservableObject {
 
     @discardableResult
     func performScheduledClean() async -> ScheduledCleaningSummary {
-        refreshPermission()
-        guard ScheduledCleaningPreferenceStore.shared.isEnabled, hasFullDiskAccess else {
+        // `performSafeCleanup` reruns the developer scan with the access Purge has
+        // now, then checks every candidate with `ProtectedLocations.isReadable`
+        // before it moves, so a revoked grant never cleans a locked folder.
+        guard ScheduledCleaningPreferenceStore.shared.isEnabled else {
             return ScheduledCleaningSummary(deletedCount: 0, bytesMovedToTrash: 0)
         }
         return await performSafeCleanup(
@@ -2726,6 +2793,9 @@ final class PurgeStore: ObservableObject {
         pinnedCandidates: [DeletionCandidate]? = nil,
         onProgress: (@Sendable (DeletionProgressEvent) -> Void)? = nil
     ) async -> ScheduledCleaningSummary {
+        // Pinned candidates skip the rescan that would otherwise set this, and the
+        // checker must not keep `.full` from a scan made before access was revoked.
+        await gitChecker.setAccess(currentScanAccess())
         if pinnedCandidates == nil {
             await scanDeveloper()
             if cacheItems.isEmpty {
@@ -2736,11 +2806,16 @@ final class PurgeStore: ObservableObject {
         }
 
         let syncCandidates = pinnedCandidates ?? manualSafeCleanupCandidates()
+        let access = currentScanAccess()
+        await gitChecker.setAccess(access)
 
         var combined: [URL] = []
         var pathToDisplayName: [String: String] = [:]
         var pathToExpectedSizeBytes: [String: Int64] = [:]
         for candidate in syncCandidates {
+            // Access can be turned off after a full scan. Moving something out of a
+            // protected folder without it would prompt, so it waits for access again.
+            guard ProtectedLocations.isReadable(candidate.path, access: access) else { continue }
             let git = await gitChecker.cleanupStatus(for: candidate.path)
             guard git == .clean else { continue }
             let std = candidate.path.standardizedFileURL

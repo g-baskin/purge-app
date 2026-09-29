@@ -80,6 +80,9 @@ enum FirstRunGate {
         if defaults.bool(forKey: "purge.resetFirstRun") {
             defaults.set(false, forKey: onboardingCompletedKey)
             defaults.set(false, forKey: "onboarding.pendingCelebration")
+            defaults.set(false, forKey: "onboarding.pendingDeeperScan")
+            defaults.removeObject(forKey: "onboarding.lookDeeperExit")
+            defaults.removeObject(forKey: "onboarding.didCleanBeforeLookDeeper")
             defaults.set(appVersion, forKey: firstSeenVersionKey)
             defaults.set(now, forKey: firstSeenAtKey)
             return .freshInstall

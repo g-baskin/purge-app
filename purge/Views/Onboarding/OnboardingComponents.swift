@@ -29,7 +29,11 @@ struct OnboardingLayout {
   static let horizontalPadding: CGFloat = 48
   static let verticalPadding: CGFloat = 40
   static let buttonWidth: CGFloat = 240
-  static let scrollingListMaxHeight: CGFloat = 460
+  /// Space between the results (total and category list) and the action group
+  /// below it. Clearly more than the 40pt between the total and the list inside
+  /// `OnboardingResultsStep`, so the two read as separate groups, without the old
+  /// stretched gap.
+  static let resultsFooterGap: CGFloat = 64
   /// Fixed height for streamed scan rows so the list does not reflow per item.
   static let scanRowHeight: CGFloat = 56
 }
@@ -77,6 +81,9 @@ struct OnboardingCapsuleButtonStyle: ButtonStyle {
 
 struct OnboardingPrimaryButton: View {
   let title: String
+  /// Before the title, for an icon that names the action (trash).
+  var leadingSystemImage: String? = nil
+  /// After the title, for an icon that points onward (arrow).
   var systemImage: String? = nil
   var isEnabled: Bool = true
   var isLoading: Bool = false
@@ -87,6 +94,11 @@ struct OnboardingPrimaryButton: View {
   var body: some View {
     Button(action: action) {
       HStack(spacing: 8) {
+        if let leadingSystemImage {
+          Image(systemName: leadingSystemImage)
+            .font(.system(size: 12, weight: .semibold))
+        }
+
         Text(title)
 
         if isLoading {
@@ -121,63 +133,6 @@ struct OnboardingSecondaryButton: View {
       Text(title)
     }
     .buttonStyle(OnboardingCapsuleButtonStyle(variant: .elevated))
-  }
-}
-
-struct OnboardingPermissionRow: View {
-  let title: String
-  let description: String
-  let badgeText: String
-  let badgeTone: AppBadge.Tone
-  let buttonTitle: String
-  var isGranted: Bool = false
-  let action: () -> Void
-
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-  var body: some View {
-    HStack(alignment: .center, spacing: AppStyle.Spacing.medium) {
-      VStack(alignment: .leading, spacing: 4) {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Text(title)
-            .font(.subheadline.weight(.semibold))
-            .fixedSize(horizontal: false, vertical: true)
-          AppBadge(text: badgeText, tone: badgeTone)
-        }
-
-        Text(description)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .layoutPriority(1)
-
-      Button(action: action) {
-        HStack(spacing: 6) {
-          if isGranted {
-            Image(systemName: "checkmark")
-              .font(.caption.weight(.semibold))
-          }
-          Text(isGranted ? "Enabled" : buttonTitle)
-            .lineLimit(1)
-        }
-      }
-      .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
-      .fixedSize(horizontal: true, vertical: false)
-      .layoutPriority(0)
-      .disabled(isGranted)
-      .accessibilityLabel(isGranted ? "\(title), enabled" : "\(buttonTitle) for \(title)")
-    }
-    .padding(.horizontal, AppStyle.Spacing.medium)
-    .padding(.vertical, AppStyle.Spacing.small)
-    .background(AppColors.bgCard, in: RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous))
-    .overlay {
-      RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-        .stroke(AppColors.borderSubtle)
-    }
-    .shadow(color: .black.opacity(0.15), radius: 15, x: -8, y: 8)
-    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isGranted)
   }
 }
 
@@ -402,85 +357,42 @@ extension View {
   }
 }
 
-private struct OnboardingScrollContentHeightKey: PreferenceKey {
-  static var defaultValue: CGFloat = 0
-
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-    value = max(value, nextValue())
-  }
-}
-
-private struct OnboardingScrollViewportHeightKey: PreferenceKey {
-  static var defaultValue: CGFloat = 0
-
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-    value = max(value, nextValue())
-  }
-}
-
-/// Scroll view that fades the bottom edge before content clips, once the list nears the viewport limit.
+/// Scroll view whose bottom edge fades and blurs into the window background.
+/// It fills the rest of the step, so the fade sits on the window's bottom edge.
+///
+/// Both effects act on the rows only, so an empty stretch of list shows nothing:
+/// the fade is a mask on the list, which lets the window background show through
+/// rather than painting over it, and the blur comes from each row's
+/// `onboardingScrollEdgeBlur()` as it nears the edge.
 struct OnboardingFadingScrollView<Content: View>: View {
-  let maxHeight: CGFloat
-  var fadeHeight: CGFloat = 56
-  var fadeTopClearance: CGFloat = 28
+  var fadeHeight: CGFloat = OnboardingScrollEdge.fadeHeight
+  var fadeTopClearance: CGFloat = OnboardingScrollEdge.topClearance
   @ViewBuilder let content: () -> Content
-
-  @State private var contentHeight: CGFloat = 0
-  @State private var viewportHeight: CGFloat = 0
-  /// Stays on once the list has neared overflow so the edge does not pop in mid-reveal.
-  @State private var fadeEngaged = false
-
-  private var shouldEngageFade: Bool {
-    guard viewportHeight > 0 else { return false }
-    return contentHeight > viewportHeight - visibleFadeHeight
-  }
-
-  private var showsFade: Bool {
-    fadeEngaged || shouldEngageFade
-  }
-
-  private var visibleFadeHeight: CGFloat {
-    max(0, fadeHeight - fadeTopClearance)
-  }
 
   var body: some View {
     ScrollView(showsIndicators: false) {
       content()
-        .background {
-          GeometryReader { proxy in
-            Color.clear
-              .preference(key: OnboardingScrollContentHeightKey.self, value: proxy.size.height)
-          }
-        }
     }
-    .frame(maxHeight: maxHeight)
-    .background {
-      GeometryReader { proxy in
-        Color.clear
-          .preference(key: OnboardingScrollViewportHeightKey.self, value: proxy.size.height)
-      }
-    }
-    .onPreferenceChange(OnboardingScrollContentHeightKey.self) { contentHeight = $0 }
-    .onPreferenceChange(OnboardingScrollViewportHeightKey.self) { viewportHeight = $0 }
-    .onChange(of: shouldEngageFade) { engage in
-      if engage {
-        fadeEngaged = true
-      } else if contentHeight < viewportHeight - fadeHeight * 2 {
-        fadeEngaged = false
-      }
-    }
-    .overlay(alignment: .bottom) {
-      if showsFade {
-        OnboardingScrollBottomFade(height: fadeHeight, topClearance: fadeTopClearance)
-          .allowsHitTesting(false)
-          .transaction { $0.animation = nil }
+    .frame(maxHeight: .infinity)
+    .mask {
+      VStack(spacing: 0) {
+        Rectangle()
+        OnboardingScrollBottomFadeMask(height: fadeHeight, topClearance: fadeTopClearance)
       }
     }
   }
 }
 
-/// Fades scroll content into the onboarding canvas so the edge matches the window background.
-private struct OnboardingScrollBottomFade: View {
+enum OnboardingScrollEdge {
+  static let fadeHeight: CGFloat = 140
+  static let topClearance: CGFloat = 24
+  /// Blur on a row whose middle has reached the bottom edge.
+  static let maxBlurRadius: CGFloat = 8
+}
+
+/// Opaque at the top, clear at the bottom: rows fade out and the window
+/// background shows through where they were.
+private struct OnboardingScrollBottomFadeMask: View {
   let height: CGFloat
   let topClearance: CGFloat
 
@@ -488,19 +400,57 @@ private struct OnboardingScrollBottomFade: View {
     min(0.95, max(0, topClearance / max(height, 1)))
   }
 
+  /// Where along the fade a stop sits, from the clear band (0) to the bottom (1).
+  private func location(_ fraction: CGFloat) -> CGFloat {
+    fadeStartLocation + (1 - fadeStartLocation) * fraction
+  }
+
   var body: some View {
     LinearGradient(
       stops: [
-        .init(color: AppColors.bgBase.opacity(0), location: 0),
-        .init(color: AppColors.bgBase.opacity(0), location: fadeStartLocation),
-        .init(color: AppColors.bgBase.opacity(0.28), location: fadeStartLocation + (1 - fadeStartLocation) * 0.45),
-        .init(color: AppColors.bgBase.opacity(0.76), location: fadeStartLocation + (1 - fadeStartLocation) * 0.75),
-        .init(color: AppColors.bgBase, location: 1),
+        .init(color: .black, location: 0),
+        .init(color: .black, location: fadeStartLocation),
+        .init(color: .black.opacity(0.8), location: location(0.35)),
+        .init(color: .black.opacity(0.4), location: location(0.65)),
+        .init(color: .black.opacity(0.1), location: location(0.85)),
+        .init(color: .black.opacity(0), location: 1),
       ],
       startPoint: .top,
       endPoint: .bottom
     )
     .frame(height: height)
+  }
+}
+
+extension View {
+  /// Blurs a row in an `OnboardingFadingScrollView` as it moves into the bottom
+  /// fade, more the closer its middle gets to the edge. Per row rather than a
+  /// blur layer over the list, so empty space under a short list stays clear.
+  /// Needs macOS 14 for the scroll view geometry; earlier, rows only fade.
+  @ViewBuilder
+  func onboardingScrollEdgeBlur() -> some View {
+    if #available(macOS 14.0, *) {
+      visualEffect { effect, proxy in
+        effect.blur(radius: OnboardingScrollEdgeBlur.radius(
+          rowHeight: proxy.size.height,
+          visibleBottom: proxy.bounds(of: .scrollView)?.maxY
+        ))
+      }
+    } else {
+      self
+    }
+  }
+}
+
+nonisolated enum OnboardingScrollEdgeBlur {
+  /// `visibleBottom` is the scroll view's bottom edge in the row's own
+  /// coordinates. Zero until the row's middle enters the fade band.
+  static func radius(rowHeight: CGFloat, visibleBottom: CGFloat?) -> CGFloat {
+    guard let visibleBottom else { return 0 }
+    let band = OnboardingScrollEdge.fadeHeight - OnboardingScrollEdge.topClearance
+    let distanceAboveEdge = visibleBottom - rowHeight / 2
+    let progress = min(1, max(0, 1 - distanceAboveEdge / band))
+    return progress * OnboardingScrollEdge.maxBlurRadius
   }
 }
 

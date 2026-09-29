@@ -37,6 +37,10 @@ struct ContentView: View {
     @AppStorage(AppearanceMode.userDefaultsKey)
     private var appearanceModeRaw = AppearanceMode.system.rawValue
     private let isRunningPreview = ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    /// Scheduled cleaning used to be kept out of the test host by accident: the host
+    /// never has Full Disk Access, and cleaning required it. Cleaning no longer does,
+    /// so the host is excluded on purpose.
+    private let isRunningAsTestHost = TestHost.isActive()
 
     var body: some View {
         HStack(spacing: 0) {
@@ -51,7 +55,7 @@ struct ContentView: View {
             largeFilesDuplicateIndex = index
         }
         .onChange(of: scenePhase) { phase in
-            guard isLifecycleActive, phase == .active, !isRunningPreview else { return }
+            guard isLifecycleActive, phase == .active, !isRunningPreview, !isRunningAsTestHost else { return }
             Task {
                 await ScheduledCleaningRegistrar.shared.runGracefulActivationSweepIfPastDue()
             }
@@ -59,6 +63,9 @@ struct ContentView: View {
         .onChange(of: isLifecycleActive) { isActive in
             guard isActive else { return }
             Task { await runStartupMaintenance() }
+        }
+        .sheet(isPresented: $store.isLookDeeperPresented) {
+            LookDeeperSheet()
         }
         .sheet(isPresented: $store.showDeletionSheet) {
             DeletionConfirmSheet(
@@ -225,10 +232,16 @@ struct ContentView: View {
 
     private func scanIfNeeded() async {
         guard isLifecycleActive, !isRunningPreview else { return }
+        // A grant that came with macOS's "Quit & Reopen" is only visible here, on
+        // the first launch after it. Its reveal replaces the ordinary launch scan.
+        if store.consumeFullDiskAccessGrant() {
+            await store.revealFullDiskAccessGrant()
+            return
+        }
         // The menu bar model kicks off the launch scan; racing a second
         // `scanAll` here would cancel and restart it from scratch.
         guard !store.isScanningAll else { return }
-        guard store.hasFullDiskAccess, store.cacheItems.isEmpty, store.devTools.isEmpty, store.projectGroups.isEmpty else { return }
+        guard store.cacheItems.isEmpty, store.devTools.isEmpty, store.projectGroups.isEmpty else { return }
         await store.scanAll()
     }
 
@@ -237,7 +250,7 @@ struct ContentView: View {
     /// `.active` value, so without this a cold launch would skip the activation
     /// sweep entirely and an overdue clean would sit unexecuted.
     private func runStartupMaintenance() async {
-        guard isLifecycleActive, !isRunningPreview else { return }
+        guard isLifecycleActive, !isRunningPreview, !isRunningAsTestHost else { return }
         await ScheduledCleaningRegistrar.shared.runGracefulActivationSweepIfPastDue()
         await scanIfNeeded()
     }
@@ -351,8 +364,8 @@ struct ContentView: View {
         switch store.selectedTab {
         case .about:
             aboutTabBody
-        // No access checks here by design: `AppRootView` will not show the app at all without
-        // Full Disk Access, so every tab can assume it. See `FullDiskAccessGateView`.
+        // App Caches and Dev Tools work without Full Disk Access (limited scans). Large Files
+        // and the uninstaller need it and show `LockedFeatureView` until it is granted.
         case .appCaches:
             appCachesTabBody
         case .devTools:
@@ -368,9 +381,15 @@ struct ContentView: View {
 
     @ViewBuilder
     private var uninstallerTabBody: some View {
-        UninstallView()
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .underDetailPageHeader(includesSubtitle: true)
+        Group {
+            if store.hasFullDiskAccess {
+                UninstallView()
+            } else {
+                LockedFeatureView(feature: .uninstaller)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .underDetailPageHeader(includesSubtitle: store.hasFullDiskAccess)
     }
 
     @ViewBuilder
@@ -448,7 +467,9 @@ struct ContentView: View {
     @ViewBuilder
     private var largeFilesTabBody: some View {
         Group {
-            if #available(macOS 26.0, *) {
+            if !store.hasFullDiskAccess {
+                LockedFeatureView(feature: .largeFiles)
+            } else if #available(macOS 26.0, *) {
                 LargeFilesView(
                     isLoading: store.isScanningLargeFiles,
                     onScan: { Task { await store.scanLargeFiles() } },
@@ -465,8 +486,9 @@ struct ContentView: View {
                 )
             }
         }
-        .underDetailPageHeader(includesSubtitle: true)
-        .task {
+        .underDetailPageHeader(includesSubtitle: store.hasFullDiskAccess)
+        // Keyed on access so granting it while this tab is open starts the scan.
+        .task(id: store.hasFullDiskAccess) {
             guard !isRunningPreview else { return }
             await store.scanLargeFilesIfNeeded()
         }
@@ -497,10 +519,15 @@ struct ContentView: View {
     private var selectedPageHeader: some View {
         AppSectionPageHeader(title: store.selectedTab.rawValue, subtitle: selectedPageSubtitle) {
             if store.selectedTab == .appCaches || store.selectedTab == .devTools {
-                AppScanCleanActions(onScan: { Task { await store.scanAll() } }, scanPhase: store.scanPhase)
-            } else if store.selectedTab == .largeFiles {
+                HStack(spacing: AppStyle.Spacing.xSmall) {
+                    if !store.hasFullDiskAccess {
+                        LookDeeperHeaderButton()
+                    }
+                    AppScanCleanActions(onScan: { Task { await store.scanAll() } }, scanPhase: store.scanPhase)
+                }
+            } else if store.selectedTab == .largeFiles, store.hasFullDiskAccess {
                 LargeFilesHeaderActions()
-            } else if store.selectedTab == .uninstaller {
+            } else if store.selectedTab == .uninstaller, store.hasFullDiskAccess {
                 UninstallHeaderActions()
             }
         }
@@ -513,9 +540,9 @@ struct ContentView: View {
         case .devTools:
             return pageSubtitle(count: devToolsSubtitleItemCount, bytes: devToolsSubtitleTotalSize)
         case .largeFiles:
-            return largeFilesPageSubtitle
+            return store.hasFullDiskAccess ? largeFilesPageSubtitle : nil
         case .uninstaller:
-            return uninstallerPageSubtitle
+            return store.hasFullDiskAccess ? uninstallerPageSubtitle : nil
         case .settings:
             return nil
         case .about:
@@ -775,6 +802,11 @@ struct SidebarSummaryView: View {
     var body: some View {
         VStack(spacing: AppStyle.Spacing.small) {
             DeletedAppsWatcherNotice()
+            if let findings = store.accessGrantFindings {
+                AccessGrantedNotice(findings: findings)
+            } else if !store.hasFullDiskAccess {
+                LimitedScanNotice()
+            }
             storageCard
             reclaimableCard
         }
