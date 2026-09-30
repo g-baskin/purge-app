@@ -64,14 +64,16 @@ extension View {
     /// content starts passing underneath. The system scroll edge effect doesn't render on
     /// these pages (the detail column pulls its content up under the hidden title bar), so
     /// the material is driven here instead.
-    func detailPageScrollEdge(title: String) -> some View {
-        modifier(DetailPageScrollEdgeModifier(title: title))
+    func detailPageScrollEdge(title: String, includesSubtitle: Bool = false) -> some View {
+        modifier(DetailPageScrollEdgeModifier(title: title, includesSubtitle: includesSubtitle))
     }
 }
 
 @available(macOS 26.0, *)
 private struct DetailPageScrollEdgeModifier: ViewModifier {
     let title: String
+    /// Reserves the subtitle line too, for pages whose visible header shows one.
+    var includesSubtitle = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// 0 at rest, 1 once content has scrolled far enough to need a surface behind the title.
@@ -97,7 +99,7 @@ private struct DetailPageScrollEdgeModifier: ViewModifier {
                 }
             }
             .safeAreaBar(edge: .top, spacing: 0) {
-                AppSectionPageHeader(title: title)
+                AppSectionPageHeader(title: title, subtitle: includesSubtitle ? " " : nil)
                     .padding(.bottom, AppDetailPageLayout.clearanceBelowHeader)
                     .opacity(0)
                     .accessibilityHidden(true)
@@ -256,14 +258,20 @@ private struct AnimatedPageTitle: View {
     }
 }
 
+enum ScanQueueLabels {
+    /// A scan button whose scan is waiting behind another one.
+    static let queued = "Up next..."
+}
+
 /// Scan and Clean Selected — top-trailing actions on App Caches / Dev Tools pages.
 struct AppScanCleanActions: View {
     let onScan: () -> Void
     var scanPhase: PurgeStore.ScanPhase = .idle
+    var isQueued = false
 
     var body: some View {
         HStack(spacing: AppStyle.Spacing.xSmall) {
-            AppScanButton(scanPhase: scanPhase, action: onScan)
+            AppScanButton(scanPhase: scanPhase, isQueued: isQueued, action: onScan)
             AppCleanSelectedButton()
         }
         .fixedSize()
@@ -272,13 +280,16 @@ struct AppScanCleanActions: View {
 
 struct AppScanButton: View {
     let scanPhase: PurgeStore.ScanPhase
+    /// Waiting its turn behind another scan in the queue.
+    var isQueued = false
     let action: () -> Void
 
     private var isBusy: Bool {
-        scanPhase == .scanning || scanPhase == .cancelling
+        isQueued || scanPhase == .scanning || scanPhase == .cancelling
     }
 
     private var title: String {
+        if isQueued { return ScanQueueLabels.queued }
         switch scanPhase {
         case .cancelling:
             return "Cancelling..."
@@ -1751,9 +1762,17 @@ private struct AppNavIcon: View {
 }
 
 struct AppNavRow: View {
+    /// Trailing detail: a category's size, or a spinner while its scan runs.
+    enum Accessory: Equatable {
+        case none
+        case value(String, isDimmed: Bool)
+        case progress
+    }
+
     let title: String
     let systemImage: String
     let isSelected: Bool
+    var accessory: Accessory = .none
     let action: () -> Void
 
     @State private var isHovering = false
@@ -1766,6 +1785,7 @@ struct AppNavRow: View {
                     .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
                     .lineLimit(1)
                 Spacer(minLength: AppStyle.Spacing.xSmall)
+                accessoryView
             }
             .foregroundStyle(isSelected ? AppColors.textPrimary : Color.secondary)
             .padding(.horizontal, SidebarLayout.navRowInnerPadding)
@@ -1776,6 +1796,26 @@ struct AppNavRow: View {
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var accessoryView: some View {
+        switch accessory {
+        case .none:
+            EmptyView()
+        case .value(let text, let isDimmed):
+            Text(text)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(isDimmed ? .quaternary : .tertiary)
+                .lineLimit(1)
+        case .progress:
+            ProgressView()
+                .controlSize(.small)
+                .scaleEffect(0.5)
+                .frame(width: 12, height: 12)
+                .accessibilityLabel("Scanning")
+        }
     }
 
     private var navBackground: Color {

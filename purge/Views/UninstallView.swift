@@ -125,10 +125,11 @@ struct UninstallView: View {
     /// button to match; this view reads and writes it through `store`.
     private var section: UninstallSection { store.uninstallSection }
 
-    /// The Leftovers segment appears only once a scan has found something, so the
-    /// tab looks exactly as before for the common case of no orphans.
+    /// The Leftovers segment appears once a scan has found something, so the tab
+    /// looks exactly as before for the common case of no orphans. It also stays up
+    /// while the Overview's Leftovers row has opened it ahead of the scan.
     private var showsLeftoversSegment: Bool {
-        !store.orphanLeftovers.isEmpty
+        !store.orphanLeftovers.isEmpty || (section == .leftovers && store.isLeftoversScanPending)
     }
 
     private var currentSort: AppSortOption {
@@ -160,8 +161,7 @@ struct UninstallView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(AppColors.bgBase)
         .task {
-            await store.scanInstalledAppsIfNeeded()
-            await store.scanOrphanLeftoversIfNeeded()
+            store.requestScanIfNeeded(.apps, .leftovers)
         }
         // The Leftovers segment can vanish (all removed, or a rescan finds none)
         // while it is the active view; fall back to the apps so the tab never
@@ -209,9 +209,13 @@ struct UninstallView: View {
     @ViewBuilder
     private var leftoversScroll: some View {
         if store.orphanLeftovers.isEmpty {
-            // Only reachable in the brief window between the last item being
-            // removed and the segment falling back to Installed Apps.
-            Color.clear
+            if store.isLeftoversScanPending {
+                leftoversSkeleton
+            } else {
+                // Only reachable in the brief window between the last item being
+                // removed, or a scan finding none, and the fall back to Installed Apps.
+                Color.clear
+            }
         } else {
             VStack(spacing: 0) {
                 leftoversToolbar
@@ -532,6 +536,24 @@ struct UninstallView: View {
         case .grid:
             skeletonGrid
         }
+    }
+
+    /// Leftovers opened from the Overview before its scan has landed.
+    private var leftoversSkeleton: some View {
+        ScrollView {
+            LazyVStack(spacing: 6) {
+                ForEach(0..<8, id: \.self) { _ in
+                    SkeletonAppListRow()
+                }
+            }
+            .padding(.horizontal, AppDetailPageLayout.horizontalInset)
+            .padding(.top, 2)
+            .padding(.bottom, AppStyle.Spacing.large)
+        }
+        .scrollContentBackground(.hidden)
+        .background(AppColors.bgBase)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Finding leftovers from deleted apps")
     }
 
     private var skeletonList: some View {
@@ -1017,24 +1039,26 @@ struct UninstallHeaderActions: View {
         store.isScanningInstalledApps || store.isScanningOrphans
     }
 
+    private var isQueued: Bool {
+        !isScanning && (store.isScanQueued(.apps) || store.isScanQueued(.leftovers))
+    }
+
     var body: some View {
         HStack(spacing: AppStyle.Spacing.xSmall) {
             Button {
-                Task {
-                    await store.scanInstalledApps()
-                    await store.scanOrphanLeftovers()
-                }
+                store.requestScan(.apps, .leftovers)
             } label: {
                 CleaningButtonLabel(
-                    title: isScanning ? "Scanning..." : "Rescan",
-                    systemImage: isScanning ? nil : "arrow.clockwise",
-                    isCleaning: isScanning
+                    title: isQueued ? ScanQueueLabels.queued : (isScanning ? "Scanning..." : "Rescan"),
+                    systemImage: isScanning || isQueued ? nil : "arrow.clockwise",
+                    isCleaning: isScanning || isQueued
                 )
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
             }
             .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
-            .disabled(isScanning)
+            .disabled(isScanning || isQueued)
+            .keyboardShortcut("r", modifiers: [.command])
 
             // One destructive button whose job follows the active segment: Uninstall
             // for the app grid, Remove for leftovers. Crossfading between them keeps

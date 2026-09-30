@@ -203,7 +203,9 @@ struct MenuBarContentView: View {
             MenuTextRow(title: "Clean Safe Files", isEnabled: canClean) {
                 model.clean()
             }
-            MenuTextRow(title: "Scan now", isEnabled: canScan) {
+            // Refreshes the safe-to-clean figure this menu shows. Scan Everything in the
+            // window covers Large Files and apps too, so this says what it scans.
+            MenuTextRow(title: "Scan Caches & Dev Tools", isEnabled: canScan) {
                 model.scanNow()
             }
             MenuTextRow(title: "Open Purge") {
@@ -268,7 +270,7 @@ private struct ScannedAgoLabel: View {
         HStack(spacing: 3) {
             Image(systemName: "clock")
                 .font(.system(size: 10, weight: .medium))
-            Text(Self.agoCompact(from: date, to: now))
+            Text(compactAgoText(from: date, to: now))
                 .font(.system(size: 12))
         }
         .foregroundStyle(AppColors.textSecondary)
@@ -290,16 +292,6 @@ private struct ScannedAgoLabel: View {
         ticker = timer
     }
 
-    static func agoCompact(from date: Date, to now: Date) -> String {
-        let seconds = now.timeIntervalSince(date)
-        if seconds < 10 { return "just now" }
-        if seconds < 60 { return "\(Int(seconds / 10) * 10)s ago" }
-        let minutes = Int(seconds / 60)
-        if minutes < 60 { return "\(minutes)m ago" }
-        let hours = minutes / 60
-        if hours < 24 { return "\(hours)h ago" }
-        return "\(hours / 24)d ago"
-    }
 }
 
 // MARK: - Blur-fade transition
