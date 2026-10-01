@@ -365,6 +365,9 @@ final class PurgeStore: ObservableObject {
     /// Paths the user excluded from scans. Purely subtractive: the scanner drops these
     /// after the allowlist gate, so nothing new ever becomes scannable or cleanable.
     @Published private(set) var excludedPaths: Set<String> = ExcludedPathsStore.allExcludedPaths()
+    /// Bumped whenever `excludedPaths` changes, so a Large Files scan already under way
+    /// can tell that the list it started with is out of date.
+    private var exclusionRevision = 0
 
     // MARK: Scan queue and records (Overview)
 
@@ -914,7 +917,9 @@ final class PurgeStore: ObservableObject {
         // Same rule as safe cleanup: a row from a full scan whose access has since
         // been turned off stays where it is. Moving it would prompt.
         let access = currentScanAccess()
-        let candidates = staged.filter { ProtectedLocations.isReadable($0.path, access: access) }
+        let candidates = staged.filter {
+            ProtectedLocations.isReadable($0.path, access: access) && !ExcludedPathsStore.isExcluded($0.path)
+        }
         let urls = candidates.map(\.path).map(\.standardizedFileURL)
         guard !urls.isEmpty else { return }
 
@@ -1402,24 +1407,49 @@ final class PurgeStore: ObservableObject {
         let staleDays = LargeFileAgeThreshold.currentThresholdDays()
         var collected: [LargeFile] = []
 
+        // The scanner checks every file against the store before yielding it, off
+        // the main actor. What it can't see is an exclusion added after it yielded:
+        // a row already in `collected`, or one still in the stream's buffer. Every
+        // publish of `collected` would put those back, so when the list changes
+        // mid-scan, `collected` is pruned once and later arrivals get a string
+        // check against the new keys. No per-file lock or disk access on the main
+        // actor either way.
+        var seenExclusionRevision = exclusionRevision
+        var lateExclusions: ScanExclusions?
+        func syncExclusions() {
+            guard seenExclusionRevision != exclusionRevision else { return }
+            seenExclusionRevision = exclusionRevision
+            let current = ScanExclusions(keys: excludedPaths)
+            lateExclusions = current
+            collected.removeAll { current.covers(path: $0.id) }
+        }
+        func publish() {
+            syncExclusions()
+            largeFiles = collected.sorted { $0.sizeBytes > $1.sizeBytes }
+        }
+
         // Models resolve from a handful of manifests, so they land almost
         // instantly — running them ahead of the file walk puts the biggest
         // items on screen first instead of after a full home-directory sweep.
+        // They live outside the walked folders, so the exclusion check is per row.
         for await model in aiModelScanner.scanStream(minBytes: minBytes, staleDays: staleDays) {
             guard largeFileScanGeneration == generation, !Task.isCancelled else { return }
+            guard !ExcludedPathsStore.isExcluded(model.path) else { continue }
             collected.append(model)
         }
-        largeFiles = collected.sorted { $0.sizeBytes > $1.sizeBytes }
+        publish()
 
         for await file in largeFileScanner.scanStream(minBytes: minBytes, staleDays: staleDays) {
             guard largeFileScanGeneration == generation, !Task.isCancelled else { return }
+            syncExclusions()
+            if let lateExclusions, lateExclusions.covers(path: file.id) { continue }
             collected.append(file)
             if collected.count % 25 == 0 {
-                largeFiles = collected.sorted { $0.sizeBytes > $1.sizeBytes }
+                publish()
             }
         }
         guard largeFileScanGeneration == generation else { return }
-        largeFiles = collected.sorted { $0.sizeBytes > $1.sizeBytes }
+        publish()
         hasCompletedLargeFileScan = true
         stampScanRecords([.largeFiles])
         startDuplicateScan(for: largeFiles, generation: generation)
@@ -1526,6 +1556,8 @@ final class PurgeStore: ObservableObject {
     }
 
     private func performLargeFileDeletion(targets: [LargeFile]) async {
+        // A row selected before its folder was excluded must not be trashed.
+        let targets = targets.filter { !ExcludedPathsStore.isExcluded($0.path) }
         guard !targets.isEmpty, !isDeleting else { return }
 
         // A row can stand for several files (an AI model is a manifest plus its
@@ -3191,6 +3223,9 @@ final class PurgeStore: ObservableObject {
             // Access can be turned off after a full scan. Moving something out of a
             // protected folder without it would prompt, so it waits for access again.
             guard ProtectedLocations.isReadable(candidate.path, access: access) else { continue }
+            // When cache rows are already listed this clean reuses them rather than
+            // rescanning, so a folder excluded since that scan is checked here.
+            guard !ExcludedPathsStore.isExcluded(candidate.path) else { continue }
             let git = await gitChecker.cleanupStatus(for: candidate.path)
             guard git == .clean else { continue }
             let std = candidate.path.standardizedFileURL
@@ -3972,6 +4007,7 @@ final class PurgeStore: ObservableObject {
 
     private func refreshExcludedPaths() {
         excludedPaths = ExcludedPathsStore.allExcludedPaths()
+        exclusionRevision &+= 1
     }
 
     /// Subtracts every location from future scans and drops the row. Only removes paths
@@ -4083,6 +4119,68 @@ final class PurgeStore: ObservableObject {
     func removeExclusion(path: URL) {
         ExcludedPathsStore.remove(path: path)
         refreshExcludedPaths()
+    }
+
+    /// Subtracts one Large Files row from future scans and drops it. For an AI model
+    /// that is its manifest, the path the model is discovered through.
+    func excludeLargeFileFromScans(_ file: LargeFile) {
+        ExcludedPathsStore.write(path: file.path, displayName: file.displayName)
+        refreshExcludedPaths()
+        pruneExcludedResults()
+    }
+
+    /// Subtracts the folder holding a Large Files row, so nothing inside it is walked
+    /// or listed again (#46).
+    func excludeLargeFileFolderFromScans(_ file: LargeFile) {
+        excludeFoldersFromScans([file.path.deletingLastPathComponent()])
+    }
+
+    /// Folders the user picked in Settings. Exclusions only ever subtract, so any
+    /// folder is safe to add. One already covered by an existing exclusion is skipped
+    /// rather than listed twice.
+    func excludeFoldersFromScans(_ folders: [URL]) {
+        var added = false
+        for folder in folders where !ExcludedPathsStore.isExcluded(folder) {
+            ExcludedPathsStore.write(
+                path: folder,
+                displayName: FileManager.default.displayName(atPath: folder.path)
+            )
+            added = true
+        }
+        guard added else { return }
+        refreshExcludedPaths()
+        pruneExcludedResults()
+    }
+
+    /// Drops rows in every tab that the exclusion list now covers, with their
+    /// selection, so nothing excluded stays on screen ready to clean. The manual,
+    /// Large Files and scheduled delete paths re-check the store as well, so this
+    /// keeps the screen honest rather than being the only guard. Runs once per user action, so the
+    /// store's symlink-resolving check is affordable here.
+    private func pruneExcludedResults() {
+        let isExcluded: (URL) -> Bool = { ExcludedPathsStore.isExcluded($0) }
+        removeScanRows(where: isExcluded)
+        // A staged row is re-published once its size lands, so it has to go too.
+        stagedDevToolsByID = stagedDevToolsByID.filter { _, tool in !tool.paths.allSatisfy(isExcluded) }
+        stagedSimulatorsByID = stagedSimulatorsByID.filter { _, device in !isExcluded(device.folderURL) }
+        pendingCacheSizePaths = pendingCacheSizePaths.filter { !isExcluded(URL(fileURLWithPath: $0)) }
+        scanSelection.cacheIDs.formIntersection(cacheItems.map(\.id))
+        scanSelection.artifactIDs.formIntersection(projectGroups.flatMap(\.artifacts).map(\.id))
+        scanSelection.simulatorIDs.formIntersection(simulatorDevices.map(\.id))
+        pruneExcludedLargeFiles()
+    }
+
+    /// Drops Large Files rows the exclusion list now covers, along with their
+    /// selection and duplicate badges.
+    private func pruneExcludedLargeFiles() {
+        let removedIDs = Set(largeFiles.filter { ExcludedPathsStore.isExcluded($0.path) }.map(\.id))
+        guard !removedIDs.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            largeFiles.removeAll { removedIDs.contains($0.id) }
+        }
+        largeFileSelection.ids.subtract(removedIDs)
+        // A pair that just lost a member is no longer a duplicate.
+        largeFileDuplicates.removeFiles(ids: removedIDs)
     }
 
     /// Mark a row with a manual category. Persists `user_overrides.json` keyed

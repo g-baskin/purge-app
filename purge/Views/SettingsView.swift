@@ -27,9 +27,9 @@ struct SettingsView: View {
     @State private var showClearHistoryConfirmation = false
     @State private var showCustomIntervalSheet = false
     @State private var selectedHistoryEntry: CleanupHistoryEntry?
-    /// Session cache of on-disk sizes for excluded paths, keyed by path. A `nil` value
-    /// means the path no longer exists.
-    @State private var excludedPathSizes: [String: Int64?] = [:]
+    /// Session cache of on-disk sizes for excluded paths, keyed by path. No entry
+    /// means the size is still loading.
+    @State private var excludedPathSizes: [String: ExcludedPathSize] = [:]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -179,7 +179,8 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if let action = helperStatusAction {
-                statusTextButton(action.title, isDisabled: false, action: action.perform)
+                Button(action.title, action: action.perform)
+                    .buttonStyle(.purge(.secondary, size: .small))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -394,11 +395,11 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if let fixTitle = health.fixTitle {
-                statusTextButton(
-                    removedApps.isRestartingWatcher ? "Restarting…" : fixTitle,
-                    isDisabled: removedApps.isRestartingWatcher,
-                    action: { removedApps.fixWatcher() }
-                )
+                Button(removedApps.isRestartingWatcher ? "Restarting…" : fixTitle) {
+                    removedApps.fixWatcher()
+                }
+                .buttonStyle(.purge(.secondary, size: .small))
+                .disabled(removedApps.isRestartingWatcher)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -576,9 +577,13 @@ struct SettingsView: View {
         // The only header-level control in Settings: it acts on the whole list
         // below, not on a single setting, so it can't live on a row.
         settingsSection("Cleaning History") {
-            statusTextButton("Clear history", isDisabled: history.archive.entries.isEmpty) {
+            // Quiet: it sits in a section header and asks for confirmation before
+            // anything happens, so it shouldn't pull the eye like a row's control.
+            Button("Clear history") {
                 showClearHistoryConfirmation = true
             }
+            .buttonStyle(.purge(.quiet, size: .small))
+            .disabled(history.archive.entries.isEmpty)
         } content: {
             Group {
                 if displayedHistoryEntries.isEmpty {
@@ -664,11 +669,15 @@ struct SettingsView: View {
     /// eligibility when the path still passes the normal allowlist gate.
     private var excludedAppsSection: some View {
         settingsSection("Excluded from scans") {
-            settingsRowLabel(
+            settingsControlRow(
                 title: "Excluded paths",
-                caption: "Excluded paths are never scanned or cleaned. Right-click any scan result and choose 'Exclude from scans'."
-            )
-            .padding(16)
+                caption: "Scans skip these files and folders and everything inside them. Add a folder here, or right-click any scan result and choose Exclude from scans."
+            ) {
+                Button(action: chooseFoldersToExclude) {
+                    Label("Add folder\u{2026}", systemImage: "folder.badge.plus")
+                }
+                .buttonStyle(.purge(.secondary))
+            }
 
             let entries = excludedEntries
 
@@ -717,9 +726,15 @@ struct SettingsView: View {
 
             excludedSizeLabel(forPath: entry.path)
 
-            statusTextButton("Remove", isDisabled: false) {
+            Button {
                 removeExclusion(entry: entry)
+            } label: {
+                Label("Remove \(entry.displayName)", systemImage: "xmark")
+                    .labelStyle(.iconOnly)
+                    .imageScale(.small)
             }
+            .buttonStyle(.purge(.secondary, size: .small, width: .square))
+            .help("Remove from exclusions. \(entry.displayName) is scanned again next time.")
         }
         .padding(16)
         .task(id: entry.path) {
@@ -729,15 +744,25 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func excludedSizeLabel(forPath path: String) -> some View {
-        if let resolved = excludedPathSizes[path] {
-            Text(resolved.map(formatBytes) ?? "Not found")
-                .font(scheduleStatusSecondaryFont)
-                .foregroundStyle(AppColors.textSecondary)
-                .monospacedDigit()
-        } else {
+        switch excludedPathSizes[path] {
+        case .measured(let bytes):
+            excludedSizeText(formatBytes(bytes))
+        case .missing:
+            excludedSizeText("Not found")
+        case .unmeasurable:
+            excludedSizeText("Can\u{2019}t measure")
+                .help("Purge couldn\u{2019}t read this folder to measure it. It\u{2019}s still excluded.")
+        case nil:
             SkeletonBar(width: 56, height: 12)
                 .shimmering()
         }
+    }
+
+    private func excludedSizeText(_ text: String) -> some View {
+        Text(text)
+            .font(scheduleStatusSecondaryFont)
+            .foregroundStyle(AppColors.textSecondary)
+            .monospacedDigit()
     }
 
     private func excludedTotalRow(entries: [ExcludedPathEntry]) -> some View {
@@ -748,29 +773,52 @@ struct SettingsView: View {
 
             Spacer(minLength: 12)
 
-            Text(formatBytes(excludedTotalBytes(for: entries)))
-                .font(scheduleStatusPrimaryFont)
-                .foregroundStyle(AppColors.textPrimary)
-                .monospacedDigit()
+            let total = ExcludedPathsTotal.compute(paths: entries.map(\.path), sizes: excludedPathSizes)
+            if total.isComplete {
+                // A folder `du` couldn't read makes the sum a floor, not a total.
+                Text(total.hasUnmeasured ? "At least \(formatBytes(total.bytes))" : formatBytes(total.bytes))
+                    .font(scheduleStatusPrimaryFont)
+                    .foregroundStyle(AppColors.textPrimary)
+                    .monospacedDigit()
+            } else {
+                // Summing while rows still load would show a number that looks final.
+                SkeletonBar(width: 72, height: 14)
+                    .shimmering()
+            }
         }
         .padding(16)
-    }
-
-    /// Sums the sizes resolved so far; unresolved and missing paths count as zero.
-    private func excludedTotalBytes(for entries: [ExcludedPathEntry]) -> Int64 {
-        entries.reduce(into: 0) { total, entry in
-            total += (excludedPathSizes[entry.path] ?? nil) ?? 0
-        }
     }
 
     private func loadExcludedSizeIfNeeded(forPath path: String) async {
         guard excludedPathSizes[path] == nil else { return }
         let url = URL(fileURLWithPath: path)
-        let size = await Task.detached(priority: .utility) { () -> Int64? in
-            guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-            return FolderSizing.directoryByteSize(at: url)
+        let size = await Task.detached(priority: .utility) { () -> ExcludedPathSize in
+            guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
+            // Not `directoryByteSize`, which reports a failed reading as 0.
+            return FolderSizing.directoryByteSizeIfMeasurable(at: url).map(ExcludedPathSize.measured) ?? .unmeasurable
         }.value
+        // Removed while it was measuring: writing the size back would leave a stale
+        // figure that a re-add in this session would show instead of measuring again.
+        guard store.excludedPaths.contains(path) else { return }
         excludedPathSizes[path] = size
+    }
+
+    /// Lets someone exclude a folder before it ever shows up in a scan, which is the
+    /// usual case for an archive kept on purpose (#46). A plain panel, not a sheet:
+    /// Settings can be embedded in the main window or live in its own.
+    private func chooseFoldersToExclude() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = true
+        panel.canCreateDirectories = false
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+        panel.prompt = "Exclude"
+        panel.message = "Purge won\u{2019}t scan or clean anything inside the folders you choose."
+        panel.begin { response in
+            guard response == .OK else { return }
+            store.excludeFoldersFromScans(panel.urls)
+        }
     }
 
     private func removeExclusion(entry: ExcludedPathEntry) {
@@ -903,13 +951,14 @@ struct SettingsView: View {
     }
 
     private var autoCleanDisabledStatus: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
+        HStack(alignment: .firstTextBaseline, spacing: AppStyle.Spacing.xSmall) {
             Text("Auto-clean is off. Turn it on to keep your Mac clean automatically.")
                 .font(scheduleStatusSecondaryFont)
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            statusTextButton("Enable", isDisabled: false, action: enableAutoClean)
+            Button("Enable", action: enableAutoClean)
+                .buttonStyle(.purge(.secondary, size: .small))
         }
     }
 
@@ -979,21 +1028,6 @@ struct SettingsView: View {
                     .accessibilityHidden(true)
             }
         }
-    }
-
-    private func statusTextButton(
-        _ title: String,
-        isDisabled: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(scheduleStatusLinkFont)
-                .foregroundStyle(AppColors.textPrimary)
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .opacity(isDisabled ? 0.45 : 1)
     }
 
     private var settingsHorizontalContentInset: CGFloat { AppDetailPageLayout.horizontalInset }
@@ -1075,10 +1109,6 @@ struct SettingsView: View {
 
     private var scheduleStatusTertiaryFont: Font {
         AppStyle.Typography.metadata
-    }
-
-    private var scheduleStatusLinkFont: Font {
-        AppStyle.Typography.metadataEmphasis
     }
 
     private var scheduleTextTransition: ContentTransition {
