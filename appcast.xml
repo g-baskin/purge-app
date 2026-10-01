@@ -3,6 +3,26 @@
   <channel>
     <title>Purge</title>
     <item>
+      <title>Version 1.7.0</title>
+      <pubDate>Thu, 01 Oct 2026 02:46:15 +0000</pubDate>
+      <sparkle:version>26</sparkle:version>
+      <sparkle:shortVersionString>1.7.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <ul>
+          <li><strong>An Overview of the whole disk.</strong> Purge opens on a breakdown of your disk into App Caches, Dev Tools, Large Files, installed apps and leftovers from deleted apps, with each file counted once. Clicking App Caches or Dev Tools opens the tab with its safe items selected.</li>
+          <li><strong>Scan Everything, one step at a time.</strong> Scans run one after another so the Mac stays responsive, and opening a tab moves its scan to the front.</li>
+          <li><strong>Scans first, asks later.</strong> Purge scans what macOS leaves open before it asks for Full Disk Access, and never touches your personal folders or other apps' data without it.</li>
+          <li><strong>A simpler sidebar.</strong> Tabs are grouped into Clean and Review, and the sidebar shows how much is already in the Trash. Clean from each tab instead of the sidebar.</li>
+        </ul>
+      ]]></description>
+      <enclosure
+        url="https://github.com/jithin-sabu/purge-app/releases/download/v1.7.0/Purgev1.7.0.dmg"
+        sparkle:edSignature="udVoYkqhoA7Q0rC2L1bcnQHJXXiV75QAkWcUcF9WzKGlevxt+Z7nRj8iIBGWqIKQxEE3YhhVsWuL5vhxD37BDg=="
+        length="8457596"
+        type="application/octet-stream" />
+    </item>
+    <item>
       <title>Version 1.6.1</title>
       <pubDate>Sun, 27 Sep 2026 08:21:33 +0000</pubDate>
       <sparkle:version>25</sparkle:version>
