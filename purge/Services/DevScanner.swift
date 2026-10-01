@@ -57,7 +57,8 @@ nonisolated final class DevScanner {
         "Corepack Cache": "corepack-cache",
         "Obsolete Cursor Extension": "obsolete-cursor-extension",
         "Obsolete VS Code Extension": "obsolete-vscode-extension",
-        "Cursor Agent Leftovers": "cursor-agent-leftover"
+        "Cursor Agent Leftovers": "cursor-agent-leftover",
+        "Orphaned Git Worktrees": "orphaned-git-worktree"
     ]
 
     private func safetyInfo(forToolLabel toolLabel: String, primaryPath: URL?) -> SafetyInfo {
@@ -526,11 +527,12 @@ nonisolated final class DevScanner {
         let home = FileManager.default.homeDirectoryForCurrentUser
         var staticDefinitions = Self.globalCacheDefinitions()
             + discoverObsoleteEditorExtensionDefinitions(home: home, access: access)
-        // Cursor worktrees are judged by reading the git dir their `.git` file points
-        // at, which is usually a repo in Documents or Desktop. A limited scan cannot
-        // look there without a prompt, so it skips them rather than guess.
+        // Agent worktrees are judged by reading the git dir their `.git` file points
+        // at, which is usually a repo in Documents or Desktop, and Claude Code's live
+        // inside those projects. A limited scan cannot look there without a prompt,
+        // so it skips them rather than guess.
         if access == .full {
-            staticDefinitions += discoverCursorAgentLeftoverDefinitions(home: home)
+            staticDefinitions += discoverAgentLeftoverDefinitions(home: home)
         }
 
         let built = staticDefinitions.compactMap { entry -> DevTool? in
@@ -571,11 +573,22 @@ nonisolated final class DevScanner {
         return (tools, jobs)
     }
 
-    private func discoverCursorAgentLeftoverDefinitions(home: URL) -> [(label: String, paths: [URL])] {
-        let live = CursorAgentLeftoverScanPolicy.LiveContext.current(home: home)
-        let unused = CursorAgentLeftoverScanPolicy.unusedDirectories(home: home, live: live)
-        guard !unused.isEmpty else { return [] }
-        return [(CursorAgentLeftoverScanPolicy.toolLabel, unused)]
+    private func discoverAgentLeftoverDefinitions(home: URL) -> [(label: String, paths: [URL])] {
+        typealias Worktrees = AgentWorktreeScanPolicy
+        typealias Cursor = CursorAgentLeftoverScanPolicy
+        // One row for every tool's orphaned worktrees, so the label says why they are listed.
+        let entries: [(label: String, paths: [URL])] = [
+            (Worktrees.toolLabel, Worktrees.orphanedWorktrees(
+                home: home,
+                claudeProjects: Worktrees.claudeCodeProjects(home: home),
+                live: Worktrees.LiveContext.current(home: home)
+            )),
+            (Cursor.toolLabel, Cursor.unusedJunkProjectNamespaces(
+                home: home,
+                live: Cursor.LiveContext.current(home: home)
+            ))
+        ]
+        return entries.filter { !$0.paths.isEmpty }
     }
 
     private func discoverObsoleteEditorExtensionDefinitions(
