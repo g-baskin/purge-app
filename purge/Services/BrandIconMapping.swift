@@ -1,13 +1,13 @@
 import Foundation
 
-/// Maps cache/dev-tool definition keys and project artifact kinds to simple-icons slugs
-/// or installed macOS application names for bundle-icon fallback.
+/// Maps cache/dev-tool definition keys and project artifact kinds to Simple Icons
+/// slugs. Brands Simple Icons doesn't carry use their installed app's icon instead;
+/// anything else falls back to its definition's `CacheKind` symbol.
 enum BrandIconMapping {
     // MARK: - App Caches (explanations.json keys)
 
     private static let definitionKeyToSlug: [String: String] = [
         "cursor": "cursor",
-        "vscode": "visualstudiocode",
         "slack": "slack",
         "discord": "discord",
         "zoom": "zoom",
@@ -25,10 +25,6 @@ enum BrandIconMapping {
         "1password": "1password",
         "dropbox": "dropbox",
         "google-drive": "googledrive",
-        "onedrive": "googledrive",
-        "microsoft-teams": "microsoftteams",
-        "microsoft-word": "microsoftword",
-        "microsoft-excel": "microsoftexcel",
         "chrome": "googlechrome",
         "firefox": "firefox",
         "brave": "brave",
@@ -43,17 +39,10 @@ enum BrandIconMapping {
         "datadog": "datadog",
         "sentry": "sentry",
         "cleanmymac": "macpaw",
-        "bartender": "bartender",
-        "cleanshot": "cleanshot",
         "sketch": "sketch",
         "affinity-designer": "affinitydesigner",
         "affinity-photo": "affinityphoto",
-        "proxyman": "proxyman",
-        "tableplus": "tableplus",
-        "postico": "postico",
         "insomnia": "insomnia",
-        "paw-rapi": "paw",
-        "fork-git": "fork",
         "sourcetree": "sourcetree",
         "tower-git": "tower",
         "android-studio": "androidstudio",
@@ -62,9 +51,6 @@ enum BrandIconMapping {
         "chatgpt-app": "openai",
         "perplexity-updater": "perplexity",
         "ollama": "ollama",
-        "granola": "granola",
-        "screenflow": "screenflow",
-        "lungo": "lungo",
         "docker": "docker",
         "jetbrains": "jetbrains",
         "zed": "zedindustries",
@@ -83,57 +69,6 @@ enum BrandIconMapping {
         "xcode-archives": "xcode",
         "xcode-device-support": "xcode",
         "xcode-itunes-service": "xcode",
-    ]
-
-    /// Keys with no simple-icons PNG; resolve via installed app bundle only.
-    private static let bundleOnlyDefinitionKeys: Set<String> = [
-        "ghostty", "proxyman", "postico", "fork-git", "tower-git", "cleanshot",
-        "bartender", "granola", "lungo", "tableplus", "paw-rapi", "screenflow",
-        "vscode", "microsoft-teams", "microsoft-word", "microsoft-excel",
-        "onedrive",
-    ]
-
-    /// Installed `.app` name under /Applications when bundle ID lookup is unavailable.
-    private static let definitionKeyToApplicationName: [String: String] = [
-        "cursor": "Cursor",
-        "vscode": "Visual Studio Code",
-        "ghostty": "Ghostty",
-        "proxyman": "Proxyman",
-        "postico": "Postico",
-        "tableplus": "TablePlus",
-        "fork-git": "Fork",
-        "tower-git": "Tower",
-        "cleanshot": "CleanShot X",
-        "bartender": "Bartender 5",
-        "granola": "Granola",
-        "lungo": "Lungo",
-        "screenflow": "ScreenFlow",
-        "paw-rapi": "Paw",
-        "microsoft-teams": "Microsoft Teams",
-        "microsoft-word": "Microsoft Word",
-        "microsoft-excel": "Microsoft Excel",
-        "onedrive": "OneDrive",
-        "DerivedData": "Xcode",
-        "archives": "Xcode",
-        "xcode-archives": "Xcode",
-        "xcode-device-support": "Xcode",
-        "xcode-app": "Xcode",
-        "iOS DeviceSupport": "Xcode",
-        "android-studio": "Android Studio",
-        "cleanmymac": "CleanMyMac",
-        "obsolete-vscode-extension": "Visual Studio Code",
-        "adobe-media-cache-files": "Adobe Premiere Pro",
-        "adobe-media-cache": "Adobe Premiere Pro",
-        "adobe-camera-raw": "Adobe Photoshop",
-    ]
-
-    private static let definitionKeyToBundleID: [String: String] = [
-        "DerivedData": "com.apple.dt.Xcode",
-        "archives": "com.apple.dt.Xcode",
-        "xcode-archives": "com.apple.dt.Xcode",
-        "xcode-device-support": "com.apple.dt.Xcode",
-        "xcode-app": "com.apple.dt.Xcode",
-        "iOS DeviceSupport": "com.apple.dt.Xcode",
     ]
 
     // MARK: - Dev Tools global rows
@@ -163,7 +98,6 @@ enum BrandIconMapping {
         "githubactions": "github",
         "vagrant": "vagrant",
         "gitworktrees": "git",
-        "vscode": "visualstudiocode",
         "cursor": "cursor",
         "jetbrains": "jetbrains",
         "zed": "zedindustries",
@@ -186,8 +120,31 @@ enum BrandIconMapping {
         "corepack-cache": "nodedotjs",
         "obsolete-cursor-extension": "cursor",
         "cursor-agent-leftover": "cursor",
-        "obsolete-vscode-extension": "visualstudiocode",
         "zsh": "iterm2",
+    ]
+
+    // MARK: - Brands with no glyph
+
+    /// Brands Simple Icons doesn't carry: Microsoft had its logos removed, and the
+    /// smaller apps were never added. Their rows show the installed app's icon in
+    /// greyscale, found by the definition's bundle IDs first and then by this name.
+    private static let definitionKeyToApplicationName: [String: String] = [
+        "vscode": "Visual Studio Code",
+        "obsolete-vscode-extension": "Visual Studio Code",
+        "microsoft-teams": "Microsoft Teams",
+        "microsoft-word": "Microsoft Word",
+        "microsoft-excel": "Microsoft Excel",
+        "onedrive": "OneDrive",
+        "proxyman": "Proxyman",
+        "postico": "Postico",
+        "tableplus": "TablePlus",
+        "paw-rapi": "Paw",
+        "fork-git": "Fork",
+        "cleanshot": "CleanShot X",
+        "screenflow": "ScreenFlow",
+        "bartender": "Bartender 5",
+        "lungo": "Lungo",
+        "granola": "Granola",
     ]
 
   // MARK: - Project artifact kinds
@@ -269,6 +226,11 @@ enum BrandIconMapping {
         return nil
     }
 
+    /// The installed app to borrow an icon from, for a brand with no glyph.
+    static func applicationName(forDefinitionKey key: String) -> String? {
+        definitionKeyToApplicationName[key] ?? definitionKeyToApplicationName[key.lowercased()]
+    }
+
     static func slug(forArtifactKind kind: DeletableArtifactKind) -> String? {
         artifactKindToSlug[kind]
     }
@@ -285,21 +247,5 @@ enum BrandIconMapping {
             }
         }
         return nil
-    }
-
-    static func isBundleOnlyDefinitionKey(_ key: String) -> Bool {
-        bundleOnlyDefinitionKeys.contains(key) || bundleOnlyDefinitionKeys.contains(key.lowercased())
-    }
-
-    static func preferredApplicationName(forDefinitionKey key: String) -> String? {
-        definitionKeyToApplicationName[key]
-            ?? definitionKeyToApplicationName[key.lowercased()]
-    }
-
-    static func preferredBundleID(forDefinitionKey key: String) -> String? {
-        if let id = definitionKeyToBundleID[key] ?? definitionKeyToBundleID[key.lowercased()] {
-            return id
-        }
-        return ExplanationDatabase.allBundleIDs(forKey: key).first
     }
 }

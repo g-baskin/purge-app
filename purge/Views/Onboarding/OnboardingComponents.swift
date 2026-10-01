@@ -38,47 +38,6 @@ struct OnboardingLayout {
   static let scanRowHeight: CGFloat = 56
 }
 
-/// Full-width capsule used for the onboarding footer actions — taller and larger-typed
-/// than `AppButtonStyle`, which is sized for in-app chrome.
-struct OnboardingCapsuleButtonStyle: ButtonStyle {
-  enum Variant {
-    case filled
-    case elevated
-  }
-
-  var variant: Variant = .filled
-
-  @Environment(\.isEnabled) private var isEnabled
-  @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-  func makeBody(configuration: Configuration) -> some View {
-    configuration.label
-      .font(.system(size: 14, weight: .semibold, design: .rounded))
-      .tracking(0.15)
-      .foregroundStyle(variant == .filled ? AppColors.buttonPrimaryText : AppColors.textPrimary)
-      .frame(width: OnboardingLayout.buttonWidth)
-      .padding(.vertical, 8)
-      .background(background(isPressed: configuration.isPressed), in: Capsule(style: .continuous))
-      .overlay {
-        if variant == .elevated {
-          Capsule(style: .continuous)
-            .stroke(AppColors.borderSubtle)
-        }
-      }
-      .opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.45)
-      .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: isEnabled)
-  }
-
-  private func background(isPressed: Bool) -> Color {
-    switch variant {
-    case .filled:
-      return AppColors.buttonPrimaryBg
-    case .elevated:
-      return isPressed ? AppColors.bgOverlay : AppColors.bgElevated
-    }
-  }
-}
-
 struct OnboardingPrimaryButton: View {
   let title: String
   /// Before the title, for an icon that names the action (trash).
@@ -110,7 +69,6 @@ struct OnboardingPrimaryButton: View {
               .controlSize(.small)
               .scaleEffect(0.62)
               .frame(width: 13, height: 13)
-              .tint(AppColors.buttonPrimaryText)
           }
         } else if let systemImage {
           Image(systemName: systemImage)
@@ -118,7 +76,7 @@ struct OnboardingPrimaryButton: View {
         }
       }
     }
-    .buttonStyle(OnboardingCapsuleButtonStyle(variant: .filled))
+    .buttonStyle(.purge(.primary, size: .large, width: .fixed(OnboardingLayout.buttonWidth)))
     .disabled(!isEnabled || isLoading)
     .keyboardShortcut(.return, modifiers: [])
   }
@@ -132,7 +90,7 @@ struct OnboardingSecondaryButton: View {
     Button(action: action) {
       Text(title)
     }
-    .buttonStyle(OnboardingCapsuleButtonStyle(variant: .elevated))
+    .buttonStyle(.purge(.secondary, size: .large, width: .fixed(OnboardingLayout.buttonWidth)))
   }
 }
 
@@ -142,9 +100,9 @@ struct OnboardingProgressBar: View {
   var body: some View {
     GeometryReader { geo in
       ZStack(alignment: .leading) {
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
-          .fill(Color.primary.opacity(0.1))
-        RoundedRectangle(cornerRadius: 4, style: .continuous)
+        RoundedRectangle(cornerRadius: AppStyle.Radius.xs, style: .continuous)
+          .fill(AppColors.fillSecondary)
+        RoundedRectangle(cornerRadius: AppStyle.Radius.xs, style: .continuous)
           .fill(AppColors.textPrimary)
           .frame(width: max(0, geo.size.width * min(1, max(0, progress))))
           .animation(.easeInOut(duration: 0.3), value: progress)
@@ -185,8 +143,8 @@ struct OnboardingSizeComparisonLine: View {
 
   private var prefixLabel: some View {
     Text("That's room for")
-      .font(.title3.weight(.regular))
-      .foregroundStyle(.secondary)
+      .font(AppStyle.Typography.sectionTitle.weight(.regular))
+      .foregroundStyle(AppColors.textSecondary)
   }
 
   private var comparisonChips: some View {
@@ -194,8 +152,8 @@ struct OnboardingSizeComparisonLine: View {
       ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
         if index > 0 {
           Text("or")
-            .font(.title3.weight(.regular))
-            .foregroundStyle(.tertiary)
+            .font(AppStyle.Typography.sectionTitle.weight(.regular))
+            .foregroundStyle(AppColors.textTertiary)
         }
 
         OnboardingSizeComparisonChip(item: item)
@@ -221,17 +179,17 @@ private struct OnboardingSizeComparisonChip: View {
       Text(item.label)
         .lineLimit(1)
     }
-    .font(.title3.weight(.medium))
-    .foregroundStyle(.secondary)
+    .font(AppStyle.Typography.sectionTitle.weight(.medium))
+    .foregroundStyle(AppColors.textSecondary)
     .padding(.horizontal, 12)
     .padding(.vertical, 6)
     .background {
       Capsule(style: .continuous)
-        .fill(Color.primary.opacity(0.07))
+        .fill(AppColors.fillSecondary)
     }
     .overlay {
       Capsule(style: .continuous)
-        .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+        .stroke(AppColors.borderStrong, lineWidth: 1)
     }
   }
 }
@@ -247,19 +205,19 @@ struct OnboardingResultsCategoryRow: View {
     HStack(alignment: .firstTextBaseline, spacing: 8) {
       Image(systemName: symbol)
         .font(.system(size: 12, weight: .medium))
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(AppColors.textTertiary)
         .frame(width: 18, alignment: .center)
         .accessibilityHidden(true)
 
       Text(title)
-        .font(.callout)
-        .foregroundStyle(.secondary)
+        .font(AppStyle.Typography.callout)
+        .foregroundStyle(AppColors.textSecondary)
 
       Spacer(minLength: AppStyle.Spacing.xxSmall)
 
       Text(formattedSize)
-        .font(.callout)
-        .foregroundStyle(.secondary)
+        .font(AppStyle.Typography.callout)
+        .foregroundStyle(AppColors.textSecondary)
         .monospacedDigit()
         .frame(width: Self.sizeColumnWidth, alignment: .trailing)
     }
@@ -274,7 +232,7 @@ struct OnboardingStepTitle: View {
 
   var body: some View {
     Text(text)
-      .font(.system(size: 26, weight: .semibold, design: .rounded))
+      .font(AppStyle.Typography.title)
       .multilineTextAlignment(.center)
       .frame(maxWidth: .infinity, alignment: .center)
   }
@@ -291,7 +249,7 @@ struct OnboardingLoadingStepTitle: View {
 
   var body: some View {
     Text(displayText)
-      .font(.system(size: 26, weight: .semibold, design: .rounded))
+      .font(AppStyle.Typography.title)
       .multilineTextAlignment(.center)
       .frame(maxWidth: .infinity, alignment: .center)
       .accessibilityLabel("\(baseText).")

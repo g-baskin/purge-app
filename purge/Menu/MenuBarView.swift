@@ -2,28 +2,6 @@ import AppKit
 import Combine
 import SwiftUI
 
-// MARK: - Palette
-
-/// Menu-local colors. Keeps the redesign self-contained without touching
-/// `AppColors`. Accent is our blue; ready/junk is amber; success is green.
-enum MenuPalette {
-    static let accent = dynamic(light: 0x185FA5, dark: 0x2F7FD1)
-    static let amber = dynamic(light: 0xE08A00, dark: 0xF2B84B)
-    static let success = AppColors.tagSafeText
-
-    private static func dynamic(light: UInt32, dark: UInt32) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let value = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-            return NSColor(
-                srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
-                green: CGFloat((value >> 8) & 0xFF) / 255,
-                blue: CGFloat(value & 0xFF) / 255,
-                alpha: 1
-            )
-        })
-    }
-}
-
 // MARK: - Menu bar label icon
 
 /// MenuBarExtra ignores SwiftUI asset sizing; load the template asset as
@@ -141,7 +119,7 @@ struct MenuBarContentView: View {
             case .clear(let lastScanned):
                 HStack(spacing: 8) {
                     Text("You're all clear")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AppStyle.Typography.headline)
                         .foregroundStyle(AppColors.textPrimary)
                     Spacer(minLength: 0)
                     scannedAgoLabel(for: lastScanned)
@@ -153,10 +131,10 @@ struct MenuBarContentView: View {
                 HStack(spacing: 8) {
                     HStack(spacing: 0) {
                         Text(menuBytes(bytes))
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(AppStyle.Typography.sectionTitle)
                             .foregroundStyle(AppColors.textPrimary)
                         Text(" to clean")
-                            .font(.system(size: 13))
+                            .font(AppStyle.Typography.body)
                             .foregroundStyle(AppColors.textSecondary)
                     }
                     Spacer(minLength: 0)
@@ -167,14 +145,14 @@ struct MenuBarContentView: View {
             case .cleaning(let cleaned, let total):
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Cleaning…")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AppStyle.Typography.headline)
                         .foregroundStyle(AppColors.textPrimary)
                     MenuStorageBar(
                         fraction: total > 0 ? Double(cleaned) / Double(total) : 0,
-                        tint: MenuPalette.accent
+                        tint: AppColors.actionPrimary
                     )
                     Text("Moved \(menuBytes(cleaned)) of \(menuBytes(total)) to trash")
-                        .font(.system(size: 11))
+                        .font(AppStyle.Typography.metadata)
                         .foregroundStyle(AppColors.textSecondary)
                 }
                 .transition(Self.heroTransition)
@@ -183,9 +161,9 @@ struct MenuBarContentView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(MenuPalette.success)
+                        .foregroundStyle(AppColors.statusSafeText)
                     Text("Moved \(menuBytes(bytes)) to trash")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AppStyle.Typography.headline)
                         .foregroundStyle(AppColors.textPrimary)
                     Spacer(minLength: 0)
                 }
@@ -271,7 +249,7 @@ private struct ScannedAgoLabel: View {
             Image(systemName: "clock")
                 .font(.system(size: 10, weight: .medium))
             Text(compactAgoText(from: date, to: now))
-                .font(.system(size: 12))
+                .font(AppStyle.Typography.callout)
         }
         .foregroundStyle(AppColors.textSecondary)
         .onAppear { setTicking(isPanelVisible) }
@@ -352,7 +330,7 @@ private struct CheckingStatusLine: View {
             // instead of sitting side by side in the HStack.
             ZStack(alignment: .leading) {
                 Text(Self.words[index])
-                    .font(.system(size: 13, weight: .medium))
+                    .font(AppStyle.Typography.rowTitle)
                     .foregroundStyle(AppColors.textPrimary)
                     .id(index)
                     .transition(.asymmetric(
@@ -393,7 +371,7 @@ private struct MenuStorageBar: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule(style: .continuous)
-                    .fill(Color.primary.opacity(0.12))
+                    .fill(AppColors.fillSecondaryPressed)
                 Capsule(style: .continuous)
                     .fill(tint)
                     .frame(width: max(0, min(1, fraction)) * geo.size.width)
@@ -426,7 +404,7 @@ private struct MenuTextRow: View {
                     .fontWeight(titleWeight)
                 Spacer(minLength: 0)
             }
-            .font(.system(size: 13))
+            .font(AppStyle.Typography.body)
             .foregroundStyle(rowForeground)
             .padding(.horizontal, MenuLayout.rowContentInset)
             .padding(.vertical, 5)
@@ -434,7 +412,7 @@ private struct MenuTextRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
                 if hovering, isEnabled {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous)
                         .fill(Color(nsColor: .selectedContentBackgroundColor))
                 }
             }

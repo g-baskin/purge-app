@@ -549,7 +549,7 @@ struct DevToolsView<PageHeader: View>: View {
                 standardBody
             }
         }
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     private var standardBody: some View {
@@ -666,9 +666,9 @@ struct DevToolsView<PageHeader: View>: View {
     private var placeholderNoData: some View {
         VStack(spacing: 8) {
             Text("No dev tool folders surfaced yet.")
-                .font(.headline)
+                .font(AppStyle.Typography.headline)
             Text(scanPhase == .completed ? "Your Mac is looking clean. Check back later." : "Run a scan after adding projects or tool-generated folders.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -837,7 +837,7 @@ struct DevToolsView<PageHeader: View>: View {
 
                     Text("Finding projects…")
                         .font(AppStyle.Typography.metadata)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                         .listRowInsets(ScanListRowInsets.standard)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
@@ -848,7 +848,7 @@ struct DevToolsView<PageHeader: View>: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.interactiveSafeCleanupRemovedPaths)
         .animation(rowInsertionAnimation, value: developerTotalRowCount)
         .animation(expandCollapseAnimation, value: expandedProjectRoots)
@@ -888,20 +888,15 @@ struct DevToolsView<PageHeader: View>: View {
         devToolsSectionHeader {
             Text("Developer Projects")
                 .font(AppStyle.Typography.metadataEmphasis)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
         }
     }
 
     private var iosSimulatorsSectionHeader: some View {
         devToolsSectionHeader {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("iOS Simulators")
-                    .font(AppStyle.Typography.metadataEmphasis)
-                    .foregroundStyle(.secondary)
-                Text("Shutdown devices only — booted simulators stay hidden.")
-                    .font(AppStyle.Typography.metadata)
-                    .foregroundStyle(.tertiary)
-            }
+            Text("iOS Simulators")
+                .font(AppStyle.Typography.metadataEmphasis)
+                .foregroundStyle(AppColors.textSecondary)
         }
     }
 
@@ -932,8 +927,7 @@ struct DevToolsView<PageHeader: View>: View {
                     HStack(alignment: .center, spacing: 10) {
                         AdaptiveBrandIconImage(
                             source: .projectGroup(group),
-                            squareSize: AppStyle.Row.projectGroupIconSize,
-                            cornerRadius: AppStyle.Row.projectGroupIconCornerRadius
+                            squareSize: AppStyle.Row.projectGroupIconSize
                         )
                         .accessibilityLabel(projectGroupIconAccessibilityLabel(for: group))
                         Text(group.displayName)
@@ -941,12 +935,12 @@ struct DevToolsView<PageHeader: View>: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text(formatBytes(visibleGroupByteTotal(groupID: group.id)))
                             .font(AppStyle.Typography.rowTitle)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                             .monospacedDigit()
                         ZStack {
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(AppColors.textSecondary)
                         }
                         .frame(width: 12, height: 12)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0), anchor: .center)
@@ -1113,9 +1107,9 @@ struct DevToolsView<PageHeader: View>: View {
     private var emptyFilterState: some View {
         VStack(spacing: 4) {
             Text("Nothing here.")
-                .font(.headline)
+                .font(AppStyle.Typography.headline)
             Text("No items match this filter.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

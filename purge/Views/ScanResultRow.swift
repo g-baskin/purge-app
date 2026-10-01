@@ -219,7 +219,7 @@ struct ScanResultRow: View {
                 Toggle("", isOn: .constant(isSelected))
                     .labelsHidden()
                     .toggleStyle(.checkbox)
-                    .tint(AppColors.buttonPrimaryBg)
+                    .tint(AppColors.actionPrimary)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
@@ -265,8 +265,8 @@ struct ScanResultRow: View {
     @ViewBuilder
     private var rowIconView: some View {
         if rendersAsPlaceholder {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.secondary.opacity(SkeletonOpacity.light))
+            RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous)
+                .fill(AppColors.textSecondary.opacity(SkeletonOpacity.light))
                 .frame(width: 28, height: 28)
                 .accessibilityHidden(true)
                 .shimmering()
@@ -287,14 +287,14 @@ struct ScanResultRow: View {
     private var rowLoadedTextColumn: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(primaryLabel)
-                .font(.headline.weight(.semibold))
+                .font(AppStyle.Typography.headline)
                 .lineLimit(1)
 
             Text(safetyInfo.explanation)
                 .lineLimit(explanationLineLimit)
                 .truncationMode(.tail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(AppStyle.Typography.metadata)
+                .foregroundStyle(AppColors.textSecondary)
                 .frame(
                     minHeight: explanationMinHeight,
                     alignment: usesCompactExplanation ? .leading : .topLeading
@@ -308,7 +308,7 @@ struct ScanResultRow: View {
 
     private var rowPlaceholderTextColumn: some View {
         VStack(alignment: .leading, spacing: 4) {
-            SkeletonFillBar(height: ScanResultRow.headlineOneLineHeight, cornerRadius: 4)
+            SkeletonFillBar(height: ScanResultRow.headlineOneLineHeight, cornerRadius: AppStyle.Radius.xs)
 
             VStack(alignment: .leading, spacing: 4) {
                 if usesCompactExplanation {
@@ -325,7 +325,7 @@ struct ScanResultRow: View {
             )
 
             if hasExtraBadges {
-                SkeletonBar(width: 96, height: 16, cornerRadius: AppStyle.Radius.chip)
+                SkeletonBar(width: 96, height: 16, cornerRadius: AppStyle.Radius.sm)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -347,8 +347,8 @@ struct ScanResultRow: View {
         } loaded: {
             VStack(alignment: .trailing, spacing: 8) {
                 Text(formattedSize)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
+                    .font(AppStyle.Typography.metadata.weight(.medium))
+                    .foregroundStyle(AppColors.textPrimary)
                     .monospacedDigit()
 
                 AppBadge(text: statusLabel, tone: statusTone)
@@ -358,8 +358,8 @@ struct ScanResultRow: View {
 
     private var trailingMetadataSkeleton: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            SkeletonBar(width: 56, height: ScanResultRow.subheadlineOneLineHeight, cornerRadius: 4)
-            SkeletonBar(width: 92, height: 18, cornerRadius: AppStyle.Radius.chip)
+            SkeletonBar(width: 56, height: ScanResultRow.subheadlineOneLineHeight, cornerRadius: AppStyle.Radius.xs)
+            SkeletonBar(width: 92, height: 18, cornerRadius: AppStyle.Radius.sm)
         }
         .shimmering()
     }
@@ -648,7 +648,7 @@ struct ScanRowCardChrome: ViewModifier {
     var showsContextMenuHighlight: Bool = false
 
     private var cardShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: AppStyle.Radius.panel, style: .continuous)
+        RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
     }
 
     func body(content: Content) -> some View {
@@ -658,8 +658,8 @@ struct ScanRowCardChrome: ViewModifier {
                     cardShape
                         .fill(
                             showsContextMenuHighlight
-                                ? Color.primary.opacity(0.10)
-                                : Color.primary.opacity(0.05)
+                                ? AppColors.fillSecondaryPressed
+                                : AppColors.fillSecondary
                         )
                 }
                 .clipShape(cardShape)
@@ -674,8 +674,8 @@ struct ScanRowCardChrome: ViewModifier {
             content
                 .background {
                     if showsContextMenuHighlight {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.primary.opacity(0.08))
+                        RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous)
+                            .fill(AppColors.fillSecondary)
                     }
                 }
                 .opacity(canSelectForBulk ? 1 : 0.55)

@@ -170,7 +170,7 @@ struct LargeFilesView: View {
                 standardBody
             }
         }
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .onReceive(store.largeFileDuplicates.indexPublisher) { index in
             duplicateIndex = index
         }
@@ -208,10 +208,8 @@ struct LargeFilesView: View {
                     systemImage: isLoading ? nil : "arrow.clockwise",
                     isCleaning: isLoading
                 )
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
             }
-            .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
+            .buttonStyle(.purge(.secondary))
             .disabled(isLoading)
 
             LargeFileDeleteButton(selection: store.largeFileSelection)
@@ -488,7 +486,7 @@ struct LargeFilesView: View {
         // row's `.onTapGesture`, so disable the List's own selection to stop it.
         .disablingListSelection()
         .scrollContentBackground(.hidden)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.largeFilesRevision)
     }
 
@@ -496,11 +494,11 @@ struct LargeFilesView: View {
         VStack(spacing: 10) {
             Image(systemName: "tray.full")
                 .font(.system(size: 38))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
             Text("No Large Files Found")
-                .font(.title3)
+                .font(AppStyle.Typography.sectionTitle.weight(.regular))
             Text("Try a lower size threshold or a shorter last-used window.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -508,24 +506,24 @@ struct LargeFilesView: View {
     private var emptyFilterState: some View {
         VStack(spacing: 4) {
             Text("Nothing here.")
-                .font(.headline)
+                .font(AppStyle.Typography.headline)
             // Name the query when there is one: with a search field in the chrome the
             // generic "this filter" leaves the user guessing whether it was the query,
             // the category, or the size threshold that emptied the list.
             if hasActiveQuery {
                 Text("No files match \"\(searchQuery)\".")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .lineLimit(2)
                     .truncationMode(.middle)
                     .multilineTextAlignment(.center)
                 Button("Clear Search") {
                     searchQuery = ""
                 }
-                .buttonStyle(.link)
-                .padding(.top, 2)
+                .buttonStyle(.purge(.secondary, size: .small))
+                .padding(.top, AppStyle.Spacing.xxSmall)
             } else {
                 Text("No files match this filter.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -606,10 +604,8 @@ private struct LargeFileDeleteButton: View {
                 selectedCount: store.selectedLargeFileCount,
                 selectedBytes: store.selectedLargeFileBytes
             )
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
         }
-        .buttonStyle(AppButtonStyle(variant: .filled, isCapsule: true))
+        .buttonStyle(.purge(.primary))
         .disabled(store.selectedLargeFileCount == 0 || store.isDeleting)
     }
 }
@@ -634,7 +630,7 @@ private struct LargeFileDuplicateStatus: View {
                         .scaleEffect(0.7)
                         .frame(width: 12, height: 12)
                     Text("Checking for duplicates…")
-                        .font(.system(size: 12))
+                        .font(AppStyle.Typography.callout)
                         .foregroundStyle(AppColors.textTertiary)
                         .lineLimit(1)
                 }
@@ -679,8 +675,8 @@ private struct LargeFileSelectAllBar: View {
 
             if let onKeepOneOfEach {
                 // Sits with the sort control, not beside "Select All": both are
-                // AppButtonStyle boxes, so grouping them keeps the boxed controls on
-                // one baseline instead of one box riding proud of the plain-text
+                // PurgeButtonStyle pills, so grouping them keeps the pill controls on
+                // one baseline instead of one pill riding proud of the plain-text
                 // checkbox. A real Button is fine here — the bar is above the List,
                 // not inside it, so it can't trigger the scroll-to-clicked-row jump
                 // the rows guard against.
@@ -688,7 +684,7 @@ private struct LargeFileSelectAllBar: View {
                     Label("Delete extra copies", systemImage: "trash")
                         .labelStyle(.titleAndIcon)
                 }
-                .buttonStyle(AppButtonStyle(variant: .bordered))
+                .buttonStyle(.purge(.secondary))
                 .fixedSize()
                 .help("Keep one copy of each set and review the rest before deleting")
             }
@@ -719,7 +715,6 @@ private struct LargeFileSearchField: View {
     /// Matches FilterChip's metrics so the row's controls share a baseline.
     private static let horizontalPadding: CGFloat = 10
     private static let verticalPadding: CGFloat = 5
-    private static let labelSize: CGFloat = 13
 
     private var hasText: Bool { !query.isEmpty }
 
@@ -733,7 +728,7 @@ private struct LargeFileSearchField: View {
 
             TextField("Search", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: Self.labelSize))
+                .font(AppStyle.Typography.body)
                 .foregroundStyle(AppColors.textPrimary)
                 .focused($isFocused)
                 .focusEffectDisabledIfAvailable()
@@ -773,12 +768,12 @@ private struct LargeFileSearchField: View {
         .frame(width: 220)
         .background {
             Capsule(style: .continuous)
-                .fill(AppColors.bgElevated)
+                .fill(AppColors.fillSecondary)
         }
         .overlay {
             Capsule(style: .continuous)
                 .strokeBorder(
-                    isFocused ? AppColors.buttonPrimaryBg : AppColors.borderSubtle,
+                    isFocused ? AppColors.actionPrimary : AppColors.borderSubtle,
                     lineWidth: 1
                 )
         }
@@ -878,11 +873,11 @@ private struct DuplicateGroupCard: View {
         .frame(height: height)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.panel, style: .continuous)
-                .fill(AppColors.bgElevated)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.fillSecondary)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.panel, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
@@ -989,8 +984,8 @@ private struct LargeFileRow: View {
             Spacer(minLength: 12)
 
             Text(file.formattedSize)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.primary)
+                .font(AppStyle.Typography.metadata.weight(.medium))
+                .foregroundStyle(AppColors.textPrimary)
                 .monospacedDigit()
         }
         .padding(.horizontal, 14)
@@ -1002,7 +997,7 @@ private struct LargeFileRow: View {
         .modifier(ScanRowCardChrome())
         .overlay {
             if isNested {
-                RoundedRectangle(cornerRadius: AppStyle.Radius.panel, style: .continuous)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                     .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
             }
         }
@@ -1022,7 +1017,7 @@ private struct LargeFileRow: View {
         Toggle("", isOn: .constant(isSelected))
             .labelsHidden()
             .toggleStyle(.checkbox)
-            .tint(AppColors.buttonPrimaryBg)
+            .tint(AppColors.actionPrimary)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
@@ -1048,7 +1043,7 @@ private struct LargeFileRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(file.displayName)
-                    .font(.headline.weight(.semibold))
+                    .font(AppStyle.Typography.headline)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1058,7 +1053,7 @@ private struct LargeFileRow: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .underline(isHoveringLocation)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                         .contentShape(Rectangle())
                         .onTapGesture(perform: revealInFinder)
                         .onHover { isHoveringLocation = $0 }
@@ -1068,9 +1063,9 @@ private struct LargeFileRow: View {
                         .accessibilityAction(.default, revealInFinder)
 
                     Text("·")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                     Text("Last used \(dateText)")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                         .layoutPriority(-1)
 
                     if let otherCopyCount {
@@ -1081,7 +1076,7 @@ private struct LargeFileRow: View {
                             .accessibilityLabel("\(otherCopyCount) other identical \(noun) found")
                     }
                 }
-                .font(.subheadline)
+                .font(AppStyle.Typography.metadata)
                 .lineLimit(1)
             }
         }
@@ -1148,9 +1143,9 @@ private struct LargeFileThumbnailIcon: View {
     private var extensionBadge: some View {
         if !fileExtension.isEmpty {
             Text(".\(fileExtension)")
-                .font(.system(size: 8, weight: .semibold))
+                .font(AppStyle.Typography.micro)
                 .lineLimit(1)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .padding(.horizontal, 3)
                 .padding(.vertical, 1)
                 .background(Capsule(style: .continuous).fill(.regularMaterial))
@@ -1208,10 +1203,8 @@ struct LargeFilesHeaderActions: View {
                     systemImage: isBusy ? nil : "arrow.clockwise",
                     isCleaning: isBusy
                 )
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
             }
-            .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
+            .buttonStyle(.purge(.secondary))
             .disabled(isBusy)
             .keyboardShortcut("r", modifiers: [.command])
 
@@ -1257,7 +1250,7 @@ struct LargeFileDeletionConfirmSheet: View {
                     .foregroundStyle(AppColors.textPrimary)
 
                 Text("These are your own files. Purge moves only the ones you picked to Trash, and you can put them back if you change your mind.")
-                    .font(.callout)
+                    .font(AppStyle.Typography.callout)
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1284,19 +1277,19 @@ struct LargeFileDeletionConfirmSheet: View {
                 Spacer()
 
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(AppButtonStyle(variant: .bordered))
+                    .buttonStyle(.purge(.secondary))
                     .keyboardShortcut(.cancelAction)
 
                 Button("Move \(files.count) to Trash") {
                     onConfirm()
                 }
-                .buttonStyle(SolidDestructiveButtonStyle())
+                .buttonStyle(.purge(.destructive))
                 .keyboardShortcut(.defaultAction)
             }
         }
         .padding(AppStyle.Spacing.large)
         .frame(minWidth: 580, minHeight: 500)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     /// One selected file as a card, matching the scan rows: its icon, name, and
@@ -1332,11 +1325,11 @@ struct LargeFileDeletionConfirmSheet: View {
         .padding(.vertical, AppStyle.Spacing.small)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(AppColors.bgCard)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.surfaceCard)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
         )
     }
@@ -1360,7 +1353,7 @@ struct LargeFileDeletionConfirmSheet: View {
     private var allCopiesWarning: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(AppColors.tagCheckText)
+                .foregroundStyle(AppColors.statusCheckText)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -1373,14 +1366,14 @@ struct LargeFileDeletionConfirmSheet: View {
                     Text("…and \(remainingConsumedGroupCount) more sets where every copy is selected.")
                 }
             }
-            .font(.subheadline)
+            .font(AppStyle.Typography.metadata)
             .foregroundStyle(AppColors.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.chip, style: .continuous)
-                .fill(AppColors.tagCheckBg)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous)
+                .fill(AppColors.statusCheckFill)
         )
         .accessibilityElement(children: .combine)
     }
@@ -1438,7 +1431,7 @@ struct DuplicateCleanupSheet: View {
                     .foregroundStyle(AppColors.textPrimary)
 
                 Text("Every copy is identical, so keeping any one is safe. Purge keeps the copy in a real folder over one in Downloads, a cache, or a build folder, and prefers the original name. The rest go to Trash. Tap a copy to keep it instead.")
-                    .font(.callout)
+                    .font(AppStyle.Typography.callout)
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1461,19 +1454,19 @@ struct DuplicateCleanupSheet: View {
                 Spacer()
 
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(AppButtonStyle(variant: .bordered))
+                    .buttonStyle(.purge(.secondary))
                     .keyboardShortcut(.cancelAction)
 
                 Button("Move \(deleteCount) to Trash") {
                     onConfirm(keeperByGroup)
                 }
-                .buttonStyle(SolidDestructiveButtonStyle())
+                .buttonStyle(.purge(.destructive))
                 .keyboardShortcut(.defaultAction)
             }
         }
         .padding(AppStyle.Spacing.large)
         .frame(minWidth: 580, minHeight: 500)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     /// One duplicate set as a card, matching the duplicate rows on the tab: a
@@ -1504,11 +1497,11 @@ struct DuplicateCleanupSheet: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(AppColors.bgCard)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.surfaceCard)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
         )
     }
@@ -1518,7 +1511,7 @@ struct DuplicateCleanupSheet: View {
         // Copies in a set share a name, so the folder is what tells them apart.
         return HStack(spacing: AppStyle.Spacing.small) {
             Image(systemName: isKeeper ? "largecircle.fill.circle" : "circle")
-                .foregroundStyle(isKeeper ? AppColors.buttonPrimaryBg : AppColors.textTertiary)
+                .foregroundStyle(isKeeper ? AppColors.actionPrimary : AppColors.textTertiary)
                 .accessibilityHidden(true)
 
             Text(file.path.deletingLastPathComponent().path)
@@ -1546,12 +1539,12 @@ struct DuplicateCleanupSheet: View {
     private func statusTag(isKeeper: Bool) -> some View {
         Text(isKeeper ? "Keep" : "Trash")
             .font(AppStyle.Typography.metadataEmphasis)
-            .foregroundStyle(isKeeper ? AppColors.tagSafeText : AppColors.tagDangerText)
+            .foregroundStyle(isKeeper ? AppColors.statusSafeText : AppColors.statusDangerText)
             .padding(.horizontal, AppStyle.Spacing.xSmall)
             .padding(.vertical, 2)
             .background(
                 Capsule(style: .continuous)
-                    .fill(isKeeper ? AppColors.tagSafeBg : AppColors.tagDangerBg)
+                    .fill(isKeeper ? AppColors.statusSafeFill : AppColors.statusDangerFill)
             )
     }
 }

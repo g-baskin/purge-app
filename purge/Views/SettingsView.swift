@@ -60,7 +60,7 @@ struct SettingsView: View {
         .padding(.bottom, contentBottomPadding)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .frame(maxHeight: usesExternalScrollContainer ? nil : .infinity, alignment: .topLeading)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .onAppear {
             startup.refreshLoginItemStatus()
             helper.refresh()
@@ -174,7 +174,7 @@ struct SettingsView: View {
 
             Text(helperStatusMessage)
                 .font(scheduleStatusSecondaryFont)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -196,8 +196,8 @@ struct SettingsView: View {
 
     private var helperStatusTint: Color {
         switch helperPhase {
-        case .on: return AppColors.tagSafeText
-        case .awaitingApproval, .failed: return AppColors.tagCheckText
+        case .on: return AppColors.statusSafeText
+        case .awaitingApproval, .failed: return AppColors.statusCheckText
         case .off: return AppColors.textSecondary
         }
     }
@@ -389,7 +389,7 @@ struct SettingsView: View {
 
             Text(deletedAppsStatusMessage(health))
                 .font(scheduleStatusSecondaryFont)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -415,8 +415,8 @@ struct SettingsView: View {
 
     private func deletedAppsStatusTint(_ health: WatcherHealth) -> Color {
         switch health {
-        case .running: return AppColors.tagSafeText
-        case .needsApproval, .notRunning, .failedToStart: return AppColors.tagCheckText
+        case .running: return AppColors.statusSafeText
+        case .needsApproval, .notRunning, .failedToStart: return AppColors.statusCheckText
         case .off, .checking: return AppColors.textSecondary
         }
     }
@@ -540,7 +540,7 @@ struct SettingsView: View {
                 Text(isRunningScheduledCleanNow ? "Cleaning…" : "Run now")
             }
         }
-        .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
+        .buttonStyle(.purge(.secondary))
         .disabled(isRunningScheduledCleanNow || store.isDeleting)
     }
 
@@ -584,7 +584,7 @@ struct SettingsView: View {
                 if displayedHistoryEntries.isEmpty {
                     Text("No cleans recorded yet. Automatic and manual cleans will show up here.")
                         .font(scheduleStatusSecondaryFont)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(16)
                 } else {
@@ -634,13 +634,13 @@ struct SettingsView: View {
     private var cleaningHistoryExpandRow: some View {
         HStack(spacing: 10) {
             Text(isCleaningHistoryExpanded ? "Show less" : "Show all")
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(.primary)
+                .font(AppStyle.Typography.body)
+                .foregroundStyle(AppColors.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Image(systemName: isCleaningHistoryExpanded ? "chevron.up" : "chevron.down")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(AppColors.textTertiary)
                 .frame(width: 12)
         }
         .padding(.horizontal, 16)
@@ -677,7 +677,7 @@ struct SettingsView: View {
 
                 Text("Nothing excluded")
                     .font(scheduleStatusPrimaryFont)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .padding(16)
             } else {
                 ForEach(entries, id: \.path) { entry in
@@ -702,12 +702,12 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.displayName)
                     .font(scheduleStatusPrimaryFont)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppColors.textPrimary)
                     .lineLimit(1)
 
                 Text(entry.path)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
+                    .font(AppStyle.Typography.micro.weight(.regular).monospaced())
+                    .foregroundStyle(AppColors.textSecondary)
                     .textSelection(.enabled)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -732,7 +732,7 @@ struct SettingsView: View {
         if let resolved = excludedPathSizes[path] {
             Text(resolved.map(formatBytes) ?? "Not found")
                 .font(scheduleStatusSecondaryFont)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .monospacedDigit()
         } else {
             SkeletonBar(width: 56, height: 12)
@@ -750,7 +750,7 @@ struct SettingsView: View {
 
             Text(formatBytes(excludedTotalBytes(for: entries)))
                 .font(scheduleStatusPrimaryFont)
-                .foregroundStyle(.primary)
+                .foregroundStyle(AppColors.textPrimary)
                 .monospacedDigit()
         }
         .padding(16)
@@ -801,7 +801,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center) {
                 Text(title)
-                    .font(.headline)
+                    .font(AppStyle.Typography.headline)
 
                 Spacer(minLength: 12)
 
@@ -831,8 +831,8 @@ struct SettingsView: View {
 
             if let warning {
                 Text(warning)
-                    .font(.caption)
-                    .foregroundStyle(AppColors.tagCheckText)
+                    .font(AppStyle.Typography.metadata)
+                    .foregroundStyle(AppColors.statusCheckText)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -854,7 +854,7 @@ struct SettingsView: View {
             )
         }
         .toggleStyle(.switch)
-        .tint(AppColors.tagSafeText)
+        .tint(AppColors.statusSafeText)
         .padding(16)
     }
 
@@ -906,7 +906,7 @@ struct SettingsView: View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text("Auto-clean is off. Turn it on to keep your Mac clean automatically.")
                 .font(scheduleStatusSecondaryFont)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             statusTextButton("Enable", isDisabled: false, action: enableAutoClean)
@@ -921,7 +921,7 @@ struct SettingsView: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "calendar")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .symbolRenderingMode(.hierarchical)
                     .frame(width: 16, alignment: .center)
                     .padding(.top, 1)
@@ -932,14 +932,14 @@ struct SettingsView: View {
 
                     Text(display.primary)
                         .font(scheduleStatusPrimaryFont)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AppColors.textPrimary)
                         .contentTransition(scheduleTextTransition)
                         .animation(scheduleTextAnimation, value: display.primary)
 
                     if let secondary = display.secondary {
                         Text(secondary)
                             .font(scheduleStatusTertiaryFont)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(AppColors.textTertiary)
                             .contentTransition(scheduleTextTransition)
                             .animation(scheduleTextAnimation, value: secondary)
                     }
@@ -970,7 +970,7 @@ struct SettingsView: View {
         HStack(spacing: 5) {
             Text(title)
                 .font(scheduleStatusLabelFont)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
 
             if showsDueDot {
                 Circle()
@@ -1040,11 +1040,11 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                AppColors.bgElevated,
-                in: RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+                AppColors.fillSecondary,
+                in: RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                     .strokeBorder(AppColors.borderSubtle, lineWidth: 0.5)
             }
     }
@@ -1062,23 +1062,23 @@ struct SettingsView: View {
     }
 
     private var scheduleStatusLabelFont: Font {
-        .system(size: 11, weight: .medium)
+        AppStyle.Typography.metadataEmphasis
     }
 
     private var scheduleStatusPrimaryFont: Font {
-        .system(size: 13, weight: .regular)
+        AppStyle.Typography.body
     }
 
     private var scheduleStatusSecondaryFont: Font {
-        .system(size: 12, weight: .regular)
+        AppStyle.Typography.callout
     }
 
     private var scheduleStatusTertiaryFont: Font {
-        .system(size: 11, weight: .regular)
+        AppStyle.Typography.metadata
     }
 
     private var scheduleStatusLinkFont: Font {
-        .system(size: 11, weight: .medium)
+        AppStyle.Typography.metadataEmphasis
     }
 
     private var scheduleTextTransition: ContentTransition {
@@ -1196,7 +1196,7 @@ struct SettingsMenuPicker<Option: Hashable>: View {
 
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
             }
             .frame(minWidth: labelMinWidth)
             .frame(maxWidth: fillsWidth ? .infinity : nil, alignment: .leading)
@@ -1213,16 +1213,16 @@ private struct SettingsPickerButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13))
-            .foregroundStyle(.primary)
+            .font(AppStyle.Typography.body)
+            .foregroundStyle(AppColors.textPrimary)
             .padding(.horizontal, 10)
             .frame(height: AppStyle.Control.height)
             .background(
-                configuration.isPressed ? AppColors.bgElevated : AppColors.bgOverlay,
-                in: RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous)
+                configuration.isPressed ? AppColors.fillSecondary : AppColors.surfaceRaised,
+                in: RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous)
                     .strokeBorder(AppColors.borderSubtle, lineWidth: 0.5)
             }
             .opacity(isEnabled ? 1 : 0.45)
@@ -1241,20 +1241,20 @@ private struct AppearanceOptionButton: View {
             VStack(spacing: 7) {
                 thumbnail
                     .overlay {
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                        RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous)
+                            .strokeBorder(AppColors.borderStrong, lineWidth: 0.5)
                     }
                     .overlay {
                         if isSelected {
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous)
                                 .inset(by: -3)
                                 .strokeBorder(AppColors.textPrimary, lineWidth: 2)
                         }
                     }
 
                 Text(mode.displayName)
-                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? .primary : .secondary)
+                    .font(AppStyle.Typography.metadata.weight(isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? AppColors.textPrimary : AppColors.textSecondary)
             }
         }
         .buttonStyle(.plain)
@@ -1268,7 +1268,7 @@ private struct AppearanceOptionButton: View {
             .resizable()
             .scaledToFit()
             .frame(width: 64, height: 44)
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous))
     }
 }
 

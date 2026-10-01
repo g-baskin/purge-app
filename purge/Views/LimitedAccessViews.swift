@@ -41,17 +41,17 @@ struct LockedFeatureView: View {
         VStack(spacing: AppStyle.Spacing.medium) {
             Image(systemName: feature.symbol)
                 .font(.system(size: 36, weight: .regular))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .accessibilityHidden(true)
 
             VStack(spacing: AppStyle.Spacing.xSmall) {
                 Text(feature.title)
-                    .font(.title3.weight(.semibold))
+                    .font(AppStyle.Typography.sectionTitle)
                     .multilineTextAlignment(.center)
 
                 Text(feature.message)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(AppStyle.Typography.callout)
+                    .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -60,10 +60,8 @@ struct LockedFeatureView: View {
                 store.isLookDeeperPresented = true
             } label: {
                 Label("Look deeper", systemImage: "lock.open")
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
             }
-            .buttonStyle(AppButtonStyle(variant: .filled, isCapsule: true))
+            .buttonStyle(.purge(.primary))
         }
         .frame(maxWidth: 440)
         .padding(AppStyle.Spacing.large)
@@ -81,10 +79,8 @@ struct LookDeeperHeaderButton: View {
             store.isLookDeeperPresented = true
         } label: {
             Label("Look deeper", systemImage: "lock.open")
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
         }
-        .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
+        .buttonStyle(.purge(.secondary))
         .help("Some places are still locked. Let Purge look deeper.")
     }
 }
@@ -102,33 +98,33 @@ struct LimitedScanNotice: View {
             HStack(spacing: AppStyle.Spacing.xSmall) {
                 Image(systemName: "lock")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .frame(width: 20)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Limited scan")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.primary)
+                        .font(AppStyle.Typography.callout.weight(.semibold))
+                        .foregroundStyle(AppColors.textPrimary)
                     Text("Let Purge look deeper")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(.secondary)
+                        .font(AppStyle.Typography.metadataEmphasis)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
 
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(AppColors.textTertiary)
                     .accessibilityHidden(true)
             }
             .padding(.horizontal, AppStyle.Spacing.small)
             .padding(.vertical, AppStyle.Spacing.xSmall + 2)
             .background(
-                RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                    .fill(AppColors.bgElevated)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                    .fill(AppColors.fillSecondary)
             )
-            .contentShape(RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous))
         }
         .buttonStyle(LimitedScanNoticeButtonStyle())
         .accessibilityLabel("Limited scan. Let Purge look deeper.")

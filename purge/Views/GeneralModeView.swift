@@ -166,7 +166,7 @@ struct AppCachesView<PageHeader: View>: View {
                 standardBody(plan: plan)
             }
         }
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     private func standardBody(plan: ListPlan) -> some View {
@@ -356,7 +356,7 @@ struct AppCachesView<PageHeader: View>: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: store.interactiveSafeCleanupRemovedPaths)
         // O(1) stand-in for "the row set changed". `items.map(\.id)` allocated and then
         // compared an array of every row's id string on every body evaluation.
@@ -388,9 +388,9 @@ struct AppCachesView<PageHeader: View>: View {
     private var emptyFilterState: some View {
         VStack(spacing: 4) {
             Text("Nothing here.")
-                .font(.headline)
+                .font(AppStyle.Typography.headline)
             Text("No items match this filter.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -407,11 +407,11 @@ struct AppCachesView<PageHeader: View>: View {
         VStack(spacing: 10) {
             Image(systemName: "externaldrive.badge.checkmark")
                 .font(.system(size: 38))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
             Text(scanPhase == .completed ? "Your Mac is looking clean." : "No Caches Found")
-                .font(.title3)
+                .font(AppStyle.Typography.sectionTitle.weight(.regular))
             Text(scanPhase == .completed ? "Check back later." : "Run a scan to inspect recoverable application caches.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

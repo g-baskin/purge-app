@@ -1,48 +1,39 @@
 import AppKit
+import CoreImage
 import SwiftUI
 
-/// Light/dark appearance for resolving bundled simple-icons assets.
-enum BrandIconAppearance: Equatable, Sendable {
-    case light
-    case dark
-
-    init(colorScheme: ColorScheme) {
-        self = colorScheme == .dark ? .dark : .light
-    }
-
-    init(nsAppearance: NSAppearance) {
-        let match = nsAppearance.bestMatch(from: [.darkAqua, .aqua])
-        self = match == .darkAqua ? .dark : .light
-    }
-
-    static var current: BrandIconAppearance {
-        BrandIconAppearance(nsAppearance: NSApp.effectiveAppearance)
-    }
-}
-
-/// A list row icon: brand bitmap or an SF Symbol at native proportions.
+/// A list row icon: a monochrome brand glyph, an installed app's icon drawn in
+/// greyscale, or an SF Symbol.
 enum BrandRowIcon: Equatable {
-    case bitmap(NSImage)
+    /// A brand silhouette from the bundled Simple Icons set, drawn as a template
+    /// so it takes the row's text colour in light and dark alike.
+    case glyph(NSImage)
+    /// The installed app's own icon, for a brand Simple Icons doesn't carry.
+    case appIcon(NSImage)
     case symbol(String)
 
     static func == (lhs: BrandRowIcon, rhs: BrandRowIcon) -> Bool {
         switch (lhs, rhs) {
         case (.symbol(let a), .symbol(let b)):
             return a == b
-        case (.bitmap, .bitmap):
-            return false
+        case (.glyph(let a), .glyph(let b)), (.appIcon(let a), .appIcon(let b)):
+            return a === b
         default:
             return false
         }
     }
 }
 
-/// Resolves row icons for App Caches and Dev Tools from bundled simple-icons PNGs,
-/// installed application bundles, or the `folder.fill` SF Symbol fallback.
+/// Resolves row icons for App Caches, Dev Tools and project groups. A known brand
+/// gets its monochrome glyph, or its installed app's icon in greyscale when Simple
+/// Icons doesn't carry it. Otherwise the definition's `kind` picks an SF Symbol
+/// that says what the cache is. Caches Purge doesn't recognise get
+/// `questionmark.folder`, so they look different from known ones.
 final class BrandIconService {
     static let shared = BrandIconService()
 
-    static let fallbackFolderSymbolName = "folder.fill"
+    static let unknownSymbolName = "questionmark.folder"
+    static let projectFolderSymbolName = "folder.fill"
 
     private let imageCache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
@@ -50,92 +41,87 @@ final class BrandIconService {
         return cache
     }()
 
-    /// Fully-resolved row icons, keyed by the row's icon identity plus appearance.
+    /// Fully-resolved row icons, keyed by the row's icon identity.
     ///
-    /// Resolution is not cheap: a miss walks the bundled-asset lookup, then Launch
-    /// Services, then up to nine `fileExists` probes. `AdaptiveBrandIconImage` resolves
-    /// inside `body`, so without this every re-render of a visible row repeated that
-    /// work on the main thread — and during a scan the rows re-render on every flush.
+    /// `AdaptiveBrandIconImage` resolves inside `body`, and during a scan rows
+    /// re-render on every flush, so a resolved icon is kept rather than looked up
+    /// again (definition lookups, bundle reads) on the main thread.
     private var rowIconCache: [String: BrandRowIcon] = [:]
 
-    /// Installed-app lookups, **including misses** (`nil`). The miss is the expensive
-    /// case — it is the one that runs the full nine-probe filesystem walk and finds
-    /// nothing — so caching only hits would leave the hot path uncached.
+    /// Icons for installed `.app` bundles. A miss is kept too, so an app that isn't
+    /// installed is not searched for again on every render.
     private var installedAppIconCache: [String: NSImage?] = [:]
 
     private init() {}
 
     // MARK: - Public API
 
-    func rowIcon(forCacheItem item: CacheItem, appearance: BrandIconAppearance) -> BrandRowIcon {
+    func rowIcon(forCacheItem item: CacheItem) -> BrandRowIcon {
         // Keyed on what resolution actually reads, not on the item: size and timestamps
         // churn constantly during a scan but never change which icon a row gets.
-        let key = "c|\(appearance)|\(item.definitionKey ?? "")|\(item.bundleID)|\(item.appName)"
+        let key = "c|\(item.definitionKey ?? "")|\(item.bundleID)|\(item.appName)"
         return cachedRowIcon(key: key) {
-            if let key = item.definitionKey, let image = resolve(definitionKey: key, appearance: appearance) {
-                return .bitmap(image)
-            }
-            if let key = ExplanationDatabase.definitionKey(forFolderName: item.bundleID),
-               let image = resolve(definitionKey: key, appearance: appearance) {
-                return .bitmap(image)
-            }
-            if let image = resolve(appName: item.appName, bundleID: item.bundleID, appearance: appearance) {
-                return .bitmap(image)
-            }
-            return .symbol(Self.fallbackFolderSymbolName)
+            let definitionKey = item.definitionKey
+                ?? ExplanationDatabase.definitionKey(forFolderName: item.bundleID)
+                ?? ExplanationDatabase.definitionKey(forFolderName: item.appName)
+            guard let definitionKey else { return .symbol(Self.unknownSymbolName) }
+            return icon(forDefinitionKey: definitionKey)
         }
     }
 
-    func rowIcon(forCacheItem item: CacheItem, colorScheme: ColorScheme) -> BrandRowIcon {
-        rowIcon(forCacheItem: item, appearance: BrandIconAppearance(colorScheme: colorScheme))
-    }
-
-    func rowIcon(forDevTool tool: DevTool, appearance: BrandIconAppearance) -> BrandRowIcon {
-        cachedRowIcon(key: "t|\(appearance)|\(tool.definitionKey)") {
-            if let image = resolve(definitionKey: tool.definitionKey, appearance: appearance) {
-                return .bitmap(image)
-            }
-            return .symbol(Self.fallbackFolderSymbolName)
+    func rowIcon(forDevTool tool: DevTool) -> BrandRowIcon {
+        cachedRowIcon(key: "t|\(tool.definitionKey)") {
+            icon(forDefinitionKey: tool.definitionKey)
         }
     }
 
-    func rowIcon(forDevTool tool: DevTool, colorScheme: ColorScheme) -> BrandRowIcon {
-        rowIcon(forDevTool: tool, appearance: BrandIconAppearance(colorScheme: colorScheme))
-    }
-
-    func rowIcon(forProjectGroup group: ProjectGroup, appearance: BrandIconAppearance) -> BrandRowIcon {
+    func rowIcon(forProjectGroup group: ProjectGroup) -> BrandRowIcon {
         // The dominant artifact can change as sizes land mid-scan, so it belongs in the
         // key rather than being pinned to whatever was largest on first resolve.
         let dominantPath = group.artifacts.max(by: { $0.sizeBytes < $1.sizeBytes })?.path.path ?? ""
-        let key = "g|\(appearance)|\(dominantPath)|\(group.inferredTypes.map(String.init(describing:)).joined(separator: ","))"
+        let key = "g|\(dominantPath)|\(group.inferredTypes.map(String.init(describing:)).joined(separator: ","))"
         return cachedRowIcon(key: key) {
-            uncachedRowIcon(forProjectGroup: group, appearance: appearance)
+            uncachedRowIcon(forProjectGroup: group)
         }
-    }
-
-    private func uncachedRowIcon(forProjectGroup group: ProjectGroup, appearance: BrandIconAppearance) -> BrandRowIcon {
-        if let dominant = group.artifacts.max(by: { $0.sizeBytes < $1.sizeBytes }) {
-            if let slug = BrandIconMapping.slug(forArtifactKind: dominant.kind),
-               let image = bundledBrandImage(slug: slug, appearance: appearance) {
-                return .bitmap(image)
-            }
-            let pathSlug = BrandIconMapping.slug(forPathComponent: dominant.path.lastPathComponent)
-                ?? BrandIconMapping.slug(forPathComponent: dominant.path.path)
-            if let pathSlug, let image = bundledBrandImage(slug: pathSlug, appearance: appearance) {
-                return .bitmap(image)
-            }
-        }
-        if let image = iconForProjectTypes(group.inferredTypes, appearance: appearance) {
-            return .bitmap(image)
-        }
-        return .symbol(Self.fallbackFolderSymbolName)
-    }
-
-    func rowIcon(forProjectGroup group: ProjectGroup, colorScheme: ColorScheme) -> BrandRowIcon {
-        rowIcon(forProjectGroup: group, appearance: BrandIconAppearance(colorScheme: colorScheme))
     }
 
     // MARK: - Resolution
+
+    private func uncachedRowIcon(forProjectGroup group: ProjectGroup) -> BrandRowIcon {
+        if let dominant = group.artifacts.max(by: { $0.sizeBytes < $1.sizeBytes }) {
+            if let slug = BrandIconMapping.slug(forArtifactKind: dominant.kind),
+               let image = brandGlyph(slug: slug) {
+                return .glyph(image)
+            }
+            let pathSlug = BrandIconMapping.slug(forPathComponent: dominant.path.lastPathComponent)
+                ?? BrandIconMapping.slug(forPathComponent: dominant.path.path)
+            if let pathSlug, let image = brandGlyph(slug: pathSlug) {
+                return .glyph(image)
+            }
+        }
+        for type in group.inferredTypes {
+            if let slug = BrandIconMapping.slug(forProjectType: type),
+               let image = brandGlyph(slug: slug) {
+                return .glyph(image)
+            }
+        }
+        // A project really is a folder, so it keeps the folder rather than a kind.
+        return .symbol(Self.projectFolderSymbolName)
+    }
+
+    private func icon(forDefinitionKey key: String) -> BrandRowIcon {
+        if let slug = BrandIconMapping.slug(forDefinitionKey: key),
+           let image = brandGlyph(slug: slug) {
+            return .glyph(image)
+        }
+        if let image = installedBrandAppIcon(forDefinitionKey: key) {
+            return .appIcon(image)
+        }
+        if let kind = ExplanationDatabase.kind(forKey: key) {
+            return .symbol(kind.symbolName)
+        }
+        return .symbol(Self.unknownSymbolName)
+    }
 
     private func cachedRowIcon(key: String, resolve: () -> BrandRowIcon) -> BrandRowIcon {
         if let cached = rowIconCache[key] {
@@ -146,96 +132,20 @@ final class BrandIconService {
         return icon
     }
 
-    private func resolve(definitionKey key: String, appearance: BrandIconAppearance) -> NSImage? {
-        if !BrandIconMapping.isBundleOnlyDefinitionKey(key),
-           let slug = BrandIconMapping.slug(forDefinitionKey: key),
-           let image = bundledBrandImage(slug: slug, appearance: appearance) {
-            return image
-        }
-        if let bundleImage = bundleIcon(forDefinitionKey: key) {
-            return bundleImage
-        }
-        if let appName = BrandIconMapping.preferredApplicationName(forDefinitionKey: key),
-           let image = installedAppIcon(appName: appName) {
-            return image
-        }
-        if let slug = BrandIconMapping.slug(forDefinitionKey: key),
-           let image = bundledBrandImage(slug: slug, appearance: appearance) {
-            return image
-        }
-        return nil
-    }
-
-    private func resolve(appName: String, bundleID: String, appearance: BrandIconAppearance) -> NSImage? {
-        if let key = ExplanationDatabase.definitionKey(forFolderName: appName),
-           let image = resolve(definitionKey: key, appearance: appearance) {
-            return image
-        }
-        if let image = installedAppIcon(bundleID: bundleID) {
-            return image
-        }
-        if let image = installedAppIcon(appName: appName) {
-            return image
-        }
-        return nil
-    }
-
-    private func iconForProjectTypes(_ types: [ProjectType], appearance: BrandIconAppearance) -> NSImage? {
-        for type in types {
-            if let slug = BrandIconMapping.slug(forProjectType: type),
-               let image = bundledBrandImage(slug: slug, appearance: appearance) {
-                return image
-            }
-        }
-        return nil
-    }
-
-    private func bundleIcon(forDefinitionKey key: String) -> NSImage? {
-        if let bundleID = BrandIconMapping.preferredBundleID(forDefinitionKey: key),
-           let image = installedAppIcon(bundleID: bundleID) {
-            return image
-        }
-        for bundleID in ExplanationDatabase.allBundleIDs(forKey: key) {
-            if let image = installedAppIcon(bundleID: bundleID) {
-                return image
-            }
-        }
-        return nil
-    }
-
-    func bundledBrandImage(slug: String, appearance: BrandIconAppearance) -> NSImage? {
-        let resourceName = appearance == .dark ? "\(slug)-dark" : slug
-        let cacheKey = "\(resourceName)" as NSString
+    /// The bundled white silhouette for a Simple Icons slug, marked as a template
+    /// so SwiftUI tints it. Generated by `scripts/generate-brand-icons.mjs`.
+    func brandGlyph(slug: String) -> NSImage? {
+        let cacheKey = slug as NSString
         if let cached = imageCache.object(forKey: cacheKey) {
             return cached
         }
-        var url = Bundle.main.url(
-            forResource: resourceName,
-            withExtension: "png",
-            subdirectory: "BrandIcons"
-        ) ?? Bundle.main.url(forResource: resourceName, withExtension: "png")
-        if url == nil, appearance == .dark {
-            url = Bundle.main.url(forResource: slug, withExtension: "png", subdirectory: "BrandIcons")
-                ?? Bundle.main.url(forResource: slug, withExtension: "png")
-        }
-        guard let url else { return nil }
-        guard let image = NSImage(contentsOf: url) else { return nil }
+        guard let url = Bundle.main.url(forResource: slug, withExtension: "png", subdirectory: "BrandIcons")
+            ?? Bundle.main.url(forResource: slug, withExtension: "png"),
+              let image = NSImage(contentsOf: url)
+        else { return nil }
         image.size = NSSize(width: AppStyle.Row.listIconFrameSize, height: AppStyle.Row.listIconFrameSize)
+        image.isTemplate = true
         imageCache.setObject(image, forKey: cacheKey)
-        return image
-    }
-
-    func installedAppIcon(bundleID: String) -> NSImage? {
-        guard !bundleID.isEmpty else { return nil }
-        let cacheKey = "b|\(bundleID)"
-        if let cached = installedAppIconCache[cacheKey] {
-            return cached
-        }
-        var image: NSImage?
-        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-            image = NSWorkspace.shared.icon(forFile: appURL.path)
-        }
-        installedAppIconCache[cacheKey] = image
         return image
     }
 
@@ -253,46 +163,65 @@ final class BrandIconService {
         return image
     }
 
-    func installedAppIcon(appName: String) -> NSImage? {
-        let trimmed = appName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        let cacheKey = "n|\(trimmed)"
+    /// The installed app's icon in greyscale for a brand with no glyph, or nil when
+    /// the key isn't one of those brands or the app isn't installed.
+    private func installedBrandAppIcon(forDefinitionKey key: String) -> NSImage? {
+        guard let appName = BrandIconMapping.applicationName(forDefinitionKey: key) else { return nil }
+        let cacheKey = "g|\(key)"
         if let cached = installedAppIconCache[cacheKey] {
             return cached
         }
-        let image = uncachedInstalledAppIcon(trimmedAppName: trimmed)
+        let icon = ExplanationDatabase.allBundleIDs(forKey: key).lazy.compactMap(installedAppIcon(bundleID:)).first
+            ?? installedAppIcon(appName: appName)
+        let image = icon.map(Self.greyscale)
         installedAppIconCache[cacheKey] = image
         return image
     }
 
-    private func uncachedInstalledAppIcon(trimmedAppName trimmed: String) -> NSImage? {
-        var candidates = [trimmed]
-        if !trimmed.hasSuffix(".app") {
-            candidates.append("\(trimmed).app")
-        }
-        if trimmed.contains(" ") {
-            candidates.append(trimmed.replacingOccurrences(of: " ", with: "") + ".app")
-        }
+    /// Desaturated once here rather than with a SwiftUI filter, which would run on
+    /// every render of every row.
+    private static func greyscale(_ icon: NSImage) -> NSImage {
+        let side = AppStyle.Row.listIconFrameSize
+        var rect = NSRect(x: 0, y: 0, width: side * 2, height: side * 2)
+        guard let source = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return icon }
+        let output = CIImage(cgImage: source).applyingFilter(
+            "CIColorControls",
+            parameters: [kCIInputSaturationKey: 0]
+        )
+        guard let image = CIContext().createCGImage(output, from: output.extent) else { return icon }
+        return NSImage(cgImage: image, size: NSSize(width: side, height: side))
+    }
 
-        let searchRoots = [
-            "/Applications",
-            "/System/Applications",
-            NSHomeDirectory() + "/Applications",
-        ]
-
-        for root in searchRoots {
-            for name in candidates {
-                let path = (root as NSString).appendingPathComponent(name)
-                if FileManager.default.fileExists(atPath: path) {
-                    return NSWorkspace.shared.icon(forFile: path)
-                }
-            }
+    private func installedAppIcon(bundleID: String) -> NSImage? {
+        guard !bundleID.isEmpty else { return nil }
+        let cacheKey = "b|\(bundleID)"
+        if let cached = installedAppIconCache[cacheKey] {
+            return cached
         }
-        return nil
+        let image = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+            .map { NSWorkspace.shared.icon(forFile: $0.path) }
+        installedAppIconCache[cacheKey] = image
+        return image
+    }
+
+    private func installedAppIcon(appName: String) -> NSImage? {
+        let cacheKey = "n|\(appName)"
+        if let cached = installedAppIconCache[cacheKey] {
+            return cached
+        }
+        let roots = ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"]
+        let image = roots
+            .map { ($0 as NSString).appendingPathComponent("\(appName).app") }
+            .first { FileManager.default.fileExists(atPath: $0) }
+            .map { NSWorkspace.shared.icon(forFile: $0) }
+        installedAppIconCache[cacheKey] = image
+        return image
     }
 }
 
-/// SwiftUI brand icon that re-resolves when the system color scheme changes.
+/// A row icon: the monochrome brand glyph or the kind's SF Symbol, both in the
+/// secondary text colour so light and dark look the same, or an app icon already
+/// turned greyscale by the service.
 struct AdaptiveBrandIconImage: View {
     enum Source: Equatable {
         case cacheItem(CacheItem)
@@ -304,9 +233,6 @@ struct AdaptiveBrandIconImage: View {
     let source: Source
     /// When set, forces a square slot for alignment (e.g. project group headers).
     var squareSize: CGFloat?
-    var cornerRadius: CGFloat = 6
-
-    @Environment(\.colorScheme) private var colorScheme
 
     private var slotSize: CGFloat {
         squareSize ?? AppStyle.Row.listIconFrameSize
@@ -321,14 +247,20 @@ struct AdaptiveBrandIconImage: View {
         case .symbol(let name):
             Image(systemName: name)
                 .font(.system(size: symbolPointSize))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .frame(width: slotSize, height: slotSize)
-        case .bitmap(let image):
+        case .glyph(let image):
+            Image(nsImage: image)
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .foregroundStyle(AppColors.textSecondary)
+                .frame(width: slotSize, height: slotSize)
+        case .appIcon(let image):
             Image(nsImage: image)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: slotSize, height: slotSize)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
     }
 
@@ -336,11 +268,11 @@ struct AdaptiveBrandIconImage: View {
         let service = BrandIconService.shared
         switch source {
         case .cacheItem(let item):
-            return service.rowIcon(forCacheItem: item, colorScheme: colorScheme)
+            return service.rowIcon(forCacheItem: item)
         case .devTool(let tool):
-            return service.rowIcon(forDevTool: tool, colorScheme: colorScheme)
+            return service.rowIcon(forDevTool: tool)
         case .projectGroup(let group):
-            return service.rowIcon(forProjectGroup: group, colorScheme: colorScheme)
+            return service.rowIcon(forProjectGroup: group)
         case .sfSymbol(let name):
             return .symbol(name)
         }

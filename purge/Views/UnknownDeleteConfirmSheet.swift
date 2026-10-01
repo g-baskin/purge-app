@@ -57,33 +57,33 @@ struct UnknownDeleteConfirmSheet: View {
                 Spacer()
 
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(AppButtonStyle(variant: .bordered))
+                    .buttonStyle(.purge(.secondary))
                     .keyboardShortcut(.cancelAction)
 
                 Button("Continue") {
                     onConfirm()
                 }
-                .buttonStyle(SolidDestructiveButtonStyle())
+                .buttonStyle(.purge(.destructive))
                 .keyboardShortcut(.defaultAction)
             }
         }
         .padding(AppStyle.Spacing.large)
         .frame(minWidth: 520, minHeight: 460)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     private var header: some View {
         HStack(alignment: .top, spacing: AppStyle.Spacing.small) {
             Image(systemName: "questionmark.circle.fill")
                 .font(.system(size: 26))
-                .foregroundStyle(AppColors.tagCheckText)
+                .foregroundStyle(AppColors.statusCheckText)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: AppStyle.Spacing.xxSmall) {
                 Text("We're not sure what this is")
                     .font(AppStyle.Typography.pageTitle)
                     .foregroundStyle(AppColors.textPrimary)
                 Text("Purge couldn't identify this file. Only delete it if you know what it is. It can't be put back afterward.")
-                    .font(.callout)
+                    .font(AppStyle.Typography.callout)
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -107,11 +107,11 @@ struct UnknownDeleteConfirmSheet: View {
         .padding(.vertical, AppStyle.Spacing.small)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(AppColors.bgCard)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.surfaceCard)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
         )
     }
@@ -120,11 +120,11 @@ struct UnknownDeleteConfirmSheet: View {
         VStack(alignment: .leading, spacing: AppStyle.Spacing.xSmall) {
             Text(SafetyLevel.unknown.displayName)
                 .font(AppStyle.Typography.metadataEmphasis)
-                .foregroundStyle(AppColors.tagDangerText)
+                .foregroundStyle(AppColors.statusDangerText)
 
             if !sharedExplanation.isEmpty {
                 Text(sharedExplanation)
-                    .font(.callout)
+                    .font(AppStyle.Typography.callout)
                     .foregroundStyle(AppColors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -132,8 +132,8 @@ struct UnknownDeleteConfirmSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(AppStyle.Spacing.small)
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.chip, style: .continuous)
-                .fill(AppColors.tagDangerBg)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous)
+                .fill(AppColors.statusDangerFill)
         )
     }
 }

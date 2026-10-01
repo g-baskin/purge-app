@@ -8,23 +8,23 @@ struct CleanupHistorySummaryRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.trigger == .scheduled ? "Automatic clean" : "Manual clean")
                     .font(scheduleStatusPrimaryFont)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppColors.textPrimary)
 
                 Text(Self.historyDateFormatter.string(from: entry.date))
                     .font(scheduleStatusTertiaryFont)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(AppColors.textTertiary)
             }
 
             Spacer(minLength: 12)
 
             VStack(alignment: .trailing, spacing: 3) {
                 Text(formatBytes(entry.bytesMovedToTrash))
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.primary)
+                    .font(AppStyle.Typography.rowTitle)
+                    .foregroundStyle(AppColors.textPrimary)
 
                 Text(detailText)
                     .font(scheduleStatusTertiaryFont)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(AppColors.textTertiary)
             }
         }
         .accessibilityElement(children: .combine)
@@ -48,10 +48,10 @@ struct CleanupHistorySummaryRow: View {
     }()
 
     private var scheduleStatusPrimaryFont: Font {
-        .system(size: 13, weight: .regular)
+        AppStyle.Typography.body
     }
 
     private var scheduleStatusTertiaryFont: Font {
-        .system(size: 11, weight: .regular)
+        AppStyle.Typography.metadata
     }
 }

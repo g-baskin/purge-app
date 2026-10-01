@@ -24,14 +24,14 @@ struct CleanupHistoryDetailView: View {
             }
             .scrollContentBackground(.hidden)
         }
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .frame(minWidth: 480, minHeight: 320, maxHeight: 560)
     }
 
     private var sheetHeader: some View {
         HStack(alignment: .center, spacing: 12) {
             Text(entry.trigger == .scheduled ? "Automatic clean" : "Manual clean")
-                .font(.headline)
+                .font(AppStyle.Typography.headline)
 
             Spacer(minLength: 12)
 
@@ -89,8 +89,8 @@ struct CleanupHistoryDetailView: View {
 
     private func sectionLabel(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(.secondary)
+            .font(AppStyle.Typography.metadata.weight(.semibold))
+            .foregroundStyle(AppColors.textSecondary)
             .textCase(.uppercase)
     }
 
@@ -100,13 +100,13 @@ struct CleanupHistoryDetailView: View {
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(fileURL.lastPathComponent)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(.primary)
+                    .font(AppStyle.Typography.body)
+                    .foregroundStyle(AppColors.textPrimary)
                     .lineLimit(1)
 
                 Text(displayDirectoryPath(for: fileURL.deletingLastPathComponent()))
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(.tertiary)
+                    .font(AppStyle.Typography.metadata)
+                    .foregroundStyle(AppColors.textTertiary)
                     .lineLimit(1)
             }
 
@@ -114,8 +114,8 @@ struct CleanupHistoryDetailView: View {
 
             if item.sizeBytes > 0 {
                 Text(formatBytes(item.sizeBytes))
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(AppStyle.Typography.rowTitle)
+                    .foregroundStyle(AppColors.textSecondary)
             }
         }
     }
@@ -126,18 +126,18 @@ struct CleanupHistoryDetailView: View {
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(fileURL.lastPathComponent)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(.primary)
+                    .font(AppStyle.Typography.body)
+                    .foregroundStyle(AppColors.textPrimary)
                     .lineLimit(1)
 
                 Text(item.reason)
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(.secondary)
+                    .font(AppStyle.Typography.metadata)
+                    .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(displayDirectoryPath(for: fileURL.deletingLastPathComponent()))
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(.tertiary)
+                    .font(AppStyle.Typography.metadata)
+                    .foregroundStyle(AppColors.textTertiary)
                     .lineLimit(1)
             }
 
@@ -151,11 +151,11 @@ struct CleanupHistoryDetailView: View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                AppColors.bgElevated,
-                in: RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+                AppColors.fillSecondary,
+                in: RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                     .strokeBorder(AppColors.borderSubtle, lineWidth: 0.5)
             }
     }

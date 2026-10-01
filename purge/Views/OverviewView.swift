@@ -61,17 +61,17 @@ struct OverviewView: View {
     private func diskSummary(_ breakdown: OverviewBreakdown) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: AppStyle.Spacing.xSmall) {
             Text("\(formatStorageBytes(breakdown.usedBytes)) used")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .font(AppStyle.Typography.title.weight(.bold))
                 .overviewNumberTransition(breakdown.usedBytes, reduceMotion: reduceMotion)
             Text("of \(formatStorageBytes(breakdown.totalBytes))")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(AppStyle.Typography.rowTitle)
+                .foregroundStyle(AppColors.textSecondary)
                 .overviewNumberTransition(breakdown.totalBytes, reduceMotion: reduceMotion)
             Spacer(minLength: AppStyle.Spacing.small)
             // Right end, above the free part of the bar.
             Text("\(formatStorageBytes(breakdown.freeBytes)) free")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(AppStyle.Typography.rowTitle)
+                .foregroundStyle(AppColors.textSecondary)
                 .overviewNumberTransition(breakdown.freeBytes, reduceMotion: reduceMotion)
         }
         .accessibilityElement(children: .combine)
@@ -90,13 +90,13 @@ struct OverviewView: View {
             id: OverviewDiskBar.everythingElseID,
             label: "Everything else",
             bytes: breakdown.everythingElseBytes,
-            color: AppColors.overviewEverythingElse
+            color: AppColors.Chart.everythingElse
         ))
         segments.append(OverviewDiskBar.Segment(
             id: OverviewDiskBar.freeID,
             label: "Free",
             bytes: breakdown.freeBytes,
-            color: AppColors.storageBarFree
+            color: AppColors.Chart.freeSpace
         ))
         return segments
     }
@@ -125,7 +125,7 @@ struct OverviewView: View {
         VStack(spacing: 0) {
             OverviewPlainRow(
                 symbol: "ellipsis",
-                color: AppColors.overviewEverythingElse,
+                color: AppColors.Chart.everythingElse,
                 title: "Everything else",
                 detail: "macOS, your documents and photos, and files Purge doesn't sort",
                 bytes: breakdown.everythingElseBytes,
@@ -134,7 +134,7 @@ struct OverviewView: View {
             )
             InsetCardDivider()
             OverviewPlainRow(
-                color: AppColors.storageBarFree,
+                color: AppColors.Chart.freeSpace,
                 title: "Free",
                 detail: "Available for new files",
                 bytes: breakdown.freeBytes,
@@ -157,7 +157,7 @@ struct OverviewView: View {
                 }
             }
             .font(AppStyle.Typography.metadata)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(AppColors.textTertiary)
             .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -212,7 +212,7 @@ private struct OverviewCategoryRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(OverviewCategoryStyle.name(category))
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(AppStyle.Typography.headline)
                     if OverviewCategoryStyle.isReview(category), showsFigure {
                         AppBadge(text: "Review first", tone: .warning)
                     }
@@ -229,7 +229,7 @@ private struct OverviewCategoryRow: View {
         .padding(.horizontal, AppStyle.Row.scanCardHorizontalPadding)
         .padding(.vertical, 11)
         .overviewLinked(linkedState)
-        .background(isHovering || linkedState == .emphasized ? AppColors.bgElevated.opacity(0.5) : .clear)
+        .background(isHovering || linkedState == .emphasized ? AppColors.fillSecondary.opacity(0.5) : .clear)
         .contentShape(Rectangle())
         // When the figure was measured. Only on hover: App Caches and Dev Tools rescan
         // every launch, so a time on every row would mostly say "just now".
@@ -269,8 +269,8 @@ private struct OverviewCategoryRow: View {
     private var statusLine: some View {
         Text(statusText)
             .lineLimit(1)
-            .font(.system(size: 12))
-            .foregroundStyle(.secondary)
+            .font(AppStyle.Typography.callout)
+            .foregroundStyle(AppColors.textSecondary)
             .contentTransition(reduceMotion ? .identity : .numericText())
             .animation(reduceMotion ? nil : OverviewMotion.number, value: statusText)
             .shimmeringText(phase == .scanning)
@@ -284,11 +284,11 @@ private struct OverviewCategoryRow: View {
             // every locked row would repeat the same ask three times.
             Image(systemName: "lock")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(AppColors.textTertiary)
                 .padding(.trailing, 2)
         case .notScanned where !isRecorded:
             Button("Scan") { store.requestScan(category.step) }
-                .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
+                .buttonStyle(.purge(.secondary))
         case .waiting:
             // About to be measured again: no figure, not even the last one, until it scans.
             EmptyView()
@@ -296,12 +296,12 @@ private struct OverviewCategoryRow: View {
             HStack(spacing: AppStyle.Spacing.small) {
                 Text(OverviewCategoryStyle.shareText(share))
                     .font(AppStyle.Typography.metadata)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(AppColors.textTertiary)
                     .overviewNumberTransition(share, reduceMotion: reduceMotion)
                 Text(formatStorageBytes(bytes))
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(AppStyle.Typography.sectionTitle)
                     .overviewNumberTransition(bytes, reduceMotion: reduceMotion)
-                    .foregroundStyle(isRecorded ? .secondary : .primary)
+                    .foregroundStyle(isRecorded ? AppColors.textSecondary : AppColors.textPrimary)
                     .frame(minWidth: 64, alignment: .trailing)
             }
         }
@@ -406,7 +406,7 @@ private struct OverviewIconTile: View {
     let color: Color
 
     static let size: CGFloat = 28
-    private static let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+    private static let shape = RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous)
 
     var body: some View {
         Group {
@@ -456,26 +456,26 @@ private struct OverviewPlainRow: View {
             OverviewIconTile(symbol: symbol, color: color)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(AppStyle.Typography.headline)
                 Text(detail)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .font(AppStyle.Typography.callout)
+                    .foregroundStyle(AppColors.textSecondary)
                     .lineLimit(1)
             }
             Spacer(minLength: AppStyle.Spacing.small)
             Text(OverviewCategoryStyle.shareText(share))
                 .font(AppStyle.Typography.metadata)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(AppColors.textTertiary)
                 .overviewNumberTransition(share, reduceMotion: reduceMotion)
             Text(formatStorageBytes(bytes))
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(AppStyle.Typography.sectionTitle)
                 .overviewNumberTransition(bytes, reduceMotion: reduceMotion)
                 .frame(minWidth: 64, alignment: .trailing)
         }
         .padding(.horizontal, AppStyle.Row.scanCardHorizontalPadding)
         .padding(.vertical, 11)
         .overviewLinked(linkedState)
-        .background(linkedState == .emphasized ? AppColors.bgElevated.opacity(0.5) : .clear)
+        .background(linkedState == .emphasized ? AppColors.fillSecondary.opacity(0.5) : .clear)
         .accessibilityElement(children: .combine)
     }
 }
@@ -506,9 +506,9 @@ private extension View {
     /// stays inside the corners, and the border is drawn over them so the fill
     /// can't cover it.
     func overviewCard() -> some View {
-        let shape = RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
         return self
-            .background(shape.fill(AppColors.bgCard))
+            .background(shape.fill(AppColors.surfaceCard))
             .clipShape(shape)
             .overlay(shape.strokeBorder(AppColors.borderSubtle))
     }
@@ -564,20 +564,20 @@ enum OverviewCategoryStyle {
     /// the two blues would run together.
     static func tileColor(_ category: OverviewCategory) -> Color {
         switch category {
-        case .appCaches: return AppColors.overviewAppCachesTile
-        case .devTools: return AppColors.overviewDevToolsTile
-        case .leftovers: return AppColors.overviewLeftoversTile
+        case .appCaches: return AppColors.Chart.appCachesTile
+        case .devTools: return AppColors.Chart.devToolsTile
+        case .leftovers: return AppColors.Chart.leftoversTile
         case .largeFiles, .apps: return color(category)
         }
     }
 
     static func color(_ category: OverviewCategory) -> Color {
         switch category {
-        case .appCaches: return AppColors.overviewAppCaches
-        case .devTools: return AppColors.overviewDevTools
-        case .largeFiles: return AppColors.overviewLargeFiles
-        case .apps: return AppColors.overviewApps
-        case .leftovers: return AppColors.overviewLeftovers
+        case .appCaches: return AppColors.Chart.appCaches
+        case .devTools: return AppColors.Chart.devTools
+        case .largeFiles: return AppColors.Chart.largeFiles
+        case .apps: return AppColors.Chart.apps
+        case .leftovers: return AppColors.Chart.leftovers
         }
     }
 
@@ -759,10 +759,8 @@ struct OverviewScanButton: View {
                 systemImage: systemImage,
                 isCleaning: isFinishingCacheScan
             )
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
         }
-        .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
+        .buttonStyle(.purge(.secondary))
         .keyboardShortcut("r", modifiers: [.command])
         .disabled(isFinishingCacheScan || store.isDeleting)
         .help(queue.isRunning ? "Stop scanning" : "Scan App Caches, Dev Tools, Large Files and apps, one after another")

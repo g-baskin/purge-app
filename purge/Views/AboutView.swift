@@ -31,7 +31,7 @@ struct AboutView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     private var aboutScrollContent: some View {
@@ -64,21 +64,21 @@ struct AboutView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 64, height: 64)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous))
                 .contentShape(Rectangle())
                 .onTapGesture { registerIconTap() }
 
             Text("Purge")
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .font(AppStyle.Typography.title)
 
             if let devModeFlash {
                 Text(devModeFlash)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(AppStyle.Typography.callout.weight(.medium))
+                    .foregroundStyle(AppColors.textSecondary)
             } else {
                 Text("Version \(appVersion)")
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(.secondary)
+                    .font(AppStyle.Typography.callout)
+                    .foregroundStyle(AppColors.textSecondary)
             }
 
             aboutCard {
@@ -129,19 +129,19 @@ struct AboutView: View {
         VStack(spacing: 8) {
             Image(systemName: "externaldrive.badge.minus")
                 .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(AppColors.textTertiary)
                 .symbolRenderingMode(.hierarchical)
                 .accessibilityHidden(true)
 
             Text("Nothing cleaned yet")
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(AppStyle.Typography.title)
+                .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .accessibilityLabel("Nothing cleaned yet")
 
             Text("Run your first scan to get started")
-                .font(.system(size: 12, weight: .regular))
-                .foregroundStyle(.tertiary)
+                .font(AppStyle.Typography.callout)
+                .foregroundStyle(AppColors.textTertiary)
                 .multilineTextAlignment(.center)
         }
         .padding(.vertical, 4)
@@ -150,14 +150,14 @@ struct AboutView: View {
     private var lifetimeStatsContent: some View {
         VStack(spacing: 8) {
             Text("Lifetime moved to trash")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .font(AppStyle.Typography.metadata.weight(.semibold))
+                .foregroundStyle(AppColors.textSecondary)
                 .textCase(.uppercase)
                 .multilineTextAlignment(.center)
                 .accessibilityHidden(true)
 
             Text(formatBytes(store.totalMovedToTrashBytes))
-                .font(.system(size: 36, weight: .bold, design: .rounded))
+                .font(AppStyle.Typography.displaySmall)
                 .monospacedDigit()
                 .multilineTextAlignment(.center)
                 .accessibilityLabel("Lifetime moved to trash, \(formatBytes(store.totalMovedToTrashBytes))")
@@ -212,26 +212,26 @@ struct AboutView: View {
         VStack(spacing: 6) {
             HStack(spacing: 4) {
                 Text("Made with")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                 Image(systemName: "heart.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(AppColors.statusDangerText)
                 Text("by")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                 Button {
                     NSWorkspace.shared.open(xProfileURL)
                 } label: {
                     Text("Jithin")
                         .fontWeight(.medium)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(AppColors.textPrimary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Jithin on X")
             }
-            .font(.subheadline)
+            .font(AppStyle.Typography.metadata)
 
             Text(footerVersionText)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+                .font(AppStyle.Typography.metadata)
+                .foregroundStyle(AppColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
@@ -249,11 +249,11 @@ struct AboutView: View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                AppColors.bgElevated,
-                in: RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+                AppColors.fillSecondary,
+                in: RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                     .strokeBorder(AppColors.borderSubtle, lineWidth: 0.5)
             }
     }
@@ -325,17 +325,17 @@ private struct LifetimeSizeComparisonChip: View {
             Text("That's room for \(item.label)")
                 .lineLimit(1)
         }
-        .font(.system(size: 13, weight: .medium))
-        .foregroundStyle(.secondary)
+        .font(AppStyle.Typography.rowTitle)
+        .foregroundStyle(AppColors.textSecondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background {
             Capsule(style: .continuous)
-                .fill(Color.primary.opacity(0.07))
+                .fill(AppColors.fillSecondary)
         }
         .overlay {
             Capsule(style: .continuous)
-                .stroke(Color.primary.opacity(0.16), lineWidth: 1)
+                .stroke(AppColors.borderStrong, lineWidth: 1)
         }
         .accessibilityLabel("That's room for \(item.label)")
     }
@@ -345,8 +345,8 @@ private struct AboutAllowlistSummaryBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("what purge can clean")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .font(AppStyle.Typography.metadata.weight(.semibold))
+                .foregroundStyle(AppColors.textSecondary)
                 .textCase(.uppercase)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -357,8 +357,8 @@ private struct AboutAllowlistSummaryBlock: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(SafetyAllowlistSummary.boundaryLine)
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(.tertiary)
+                .font(AppStyle.Typography.metadata)
+                .foregroundStyle(AppColors.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 16)
@@ -373,17 +373,17 @@ private struct AboutAllowlistCategoryRow: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: category.icon)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .frame(width: 16, height: 16, alignment: .center)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(category.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.primary)
+                    .font(AppStyle.Typography.rowTitle)
+                    .foregroundStyle(AppColors.textPrimary)
 
                 Text(category.description)
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(.secondary)
+                    .font(AppStyle.Typography.metadata)
+                    .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -404,17 +404,17 @@ private struct AboutActionRow: View {
             HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .frame(width: 16)
 
                 Text(label)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(.primary)
+                    .font(AppStyle.Typography.body)
+                    .foregroundStyle(AppColors.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(AppColors.textTertiary)
                     .frame(width: 12)
             }
             .padding(.horizontal, 16)

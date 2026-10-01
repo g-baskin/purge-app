@@ -45,7 +45,7 @@ struct CustomCleaningIntervalSheet: View {
                     .foregroundStyle(AppColors.textPrimary)
 
                 Text("Pick your own interval. Purge will quietly clean the same safe items on that rhythm.")
-                    .font(.callout)
+                    .font(AppStyle.Typography.callout)
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -53,18 +53,18 @@ struct CustomCleaningIntervalSheet: View {
             HStack(spacing: AppStyle.Spacing.small) {
                 TextField("", text: $amountText)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 13).monospacedDigit())
+                    .font(AppStyle.Typography.body.monospacedDigit())
                     .multilineTextAlignment(.center)
                     .focused($amountFieldFocused)
                     .frame(width: 34)
                     .padding(.horizontal, 8)
                     .frame(height: AppStyle.Control.height)
                     .background(
-                        AppColors.bgOverlay,
-                        in: RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous)
+                        AppColors.surfaceRaised,
+                        in: RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous)
                     )
                     .overlay {
-                        RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous)
+                        RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous)
                             .strokeBorder(
                                 amountFieldFocused ? AppColors.textPrimary : AppColors.borderSubtle,
                                 lineWidth: amountFieldFocused ? 1 : 0.5
@@ -86,7 +86,7 @@ struct CustomCleaningIntervalSheet: View {
         }
         .padding(AppStyle.Spacing.large)
         .frame(minWidth: 420)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         // Clicking anywhere off the field drops its focus ring.
         .contentShape(Rectangle())
         .onTapGesture { amountFieldFocused = false }
@@ -107,7 +107,7 @@ struct CustomCleaningIntervalSheet: View {
             Spacer()
 
             Button("Cancel", action: onCancel)
-                .buttonStyle(AppButtonStyle(variant: .bordered))
+                .buttonStyle(.purge(.secondary))
                 .keyboardShortcut(.cancelAction)
 
             Button("Save") {
@@ -115,7 +115,7 @@ struct CustomCleaningIntervalSheet: View {
                     onConfirm(amount, unit)
                 }
             }
-            .buttonStyle(AppButtonStyle(variant: .filled))
+            .buttonStyle(.purge(.primary))
             .keyboardShortcut(.defaultAction)
             .disabled(parsedAmount == nil)
         }

@@ -10,10 +10,10 @@ struct AppBrandMark: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: iconSize, height: iconSize)
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: AppStyle.Radius.xs, style: .continuous))
 
             Text("Purge")
-                .font(.system(size: 14, weight: .semibold))
+                .font(AppStyle.Typography.sectionTitle)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Purge")
@@ -148,8 +148,8 @@ struct AppSectionPageHeader<Trailing: View>: View {
 
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(AppStyle.Typography.metadata)
+                        .foregroundStyle(AppColors.textSecondary)
                         .monospacedDigit()
                         .contentTransition(reduceMotion ? .identity : .numericText())
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.45), value: subtitle)
@@ -307,10 +307,8 @@ struct AppScanButton: View {
                 systemImage: isBusy ? nil : "arrow.clockwise",
                 isCleaning: isBusy
             )
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
         }
-        .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
+        .buttonStyle(.purge(.secondary))
         .keyboardShortcut("r", modifiers: [.command])
         .disabled(isBusy)
     }
@@ -332,10 +330,8 @@ struct AppCleanSelectedButton: View {
                     selectedCount: store.selectedCount,
                     selectedBytes: store.selectedTotalBytes
                 )
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
             }
-            .buttonStyle(AppButtonStyle(variant: .filled, isCapsule: true))
+            .buttonStyle(.purge(.primary))
             .disabled(store.selectedCount == 0 || store.isDeleting)
         }
     }
@@ -345,7 +341,6 @@ struct CleaningButtonLabel: View {
     let title: String
     let systemImage: String?
     var isCleaning: Bool = false
-    var spinnerTint: Color = AppColors.textPrimary
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -360,7 +355,6 @@ struct CleaningButtonLabel: View {
                         .controlSize(.small)
                         .scaleEffect(0.62)
                         .frame(width: 13, height: 13)
-                        .tint(spinnerTint)
                 }
             } else if let systemImage {
                 Image(systemName: systemImage)
@@ -530,10 +524,8 @@ struct SafeCleanupCelebrationOverlay: View {
     private static let minimumCleaningDwell: TimeInterval = 1.2
 
     private let celebrationAccent = AppColors.textPrimary
-    private let sheetBackground = Color(
-        light: NSColor(calibratedWhite: 0.08, alpha: 1),
-        dark: NSColor(calibratedWhite: 0.08, alpha: 1)
-    )
+    /// The overlay forces dark mode, so this is the dark window background.
+    private let sheetBackground = AppColors.surfaceBase
 
     init(session: DeletionSession, doneTitle: String = "Done", onDone: @escaping () -> Void) {
         self.session = session
@@ -560,7 +552,7 @@ struct SafeCleanupCelebrationOverlay: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.black.opacity(0.38)
+            AppColors.scrim
                 .ignoresSafeArea()
 
             if showsConfetti {
@@ -585,16 +577,16 @@ struct SafeCleanupCelebrationOverlay: View {
 
                     VStack(spacing: AppStyle.Spacing.small) {
                         Text(formatBytes(displayedBytes))
-                            .font(.system(size: 54, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
+                            .font(AppStyle.Typography.display)
+                            .foregroundStyle(AppColors.textPrimary)
                             .monospacedDigit()
                             .contentTransition(reduceMotion ? .identity : .numericText())
                             .multilineTextAlignment(.center)
                             .accessibilityAddTraits(.isHeader)
 
                         Text(subtitleText)
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.78))
+                            .font(AppStyle.Typography.sectionTitle)
+                            .foregroundStyle(AppColors.textSecondary)
                             .multilineTextAlignment(.center)
                             .contentTransition(.opacity)
 
@@ -605,7 +597,7 @@ struct SafeCleanupCelebrationOverlay: View {
                             VStack(spacing: AppStyle.Spacing.small) {
                                 if let comparisonItems = OnboardingSizeComparison.items(for: comparisonBytes) {
                                     OnboardingSizeComparisonLine(items: comparisonItems)
-                                        .foregroundStyle(.white.opacity(0.78))
+                                        .foregroundStyle(AppColors.textSecondary)
                                 }
 
                                 if tagline != nil {
@@ -650,8 +642,8 @@ struct SafeCleanupCelebrationOverlay: View {
                             Image(systemName: "trash")
                             Text("Empty your Trash to reclaim this space.")
                         }
-                        .font(.system(.body, design: .rounded, weight: .medium))
-                        .foregroundStyle(.tertiary)
+                        .font(AppStyle.Typography.body.weight(.medium))
+                        .foregroundStyle(AppColors.textTertiary)
                         .multilineTextAlignment(.center)
                     }
 
@@ -662,20 +654,13 @@ struct SafeCleanupCelebrationOverlay: View {
                             Image(systemName: "key")
                             Text("Emptying the Trash may ask for your password.")
                         }
-                        .font(.system(.body, design: .rounded, weight: .medium))
-                        .foregroundStyle(.tertiary)
+                        .font(AppStyle.Typography.body.weight(.medium))
+                        .foregroundStyle(AppColors.textTertiary)
                         .multilineTextAlignment(.center)
                     }
 
-                    Button(action: onDone) {
-                        Text(doneTitle)
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundStyle(AppColors.buttonPrimaryText)
-                            .frame(maxWidth: 300)
-                            .padding(.vertical, 11)
-                            .background(celebrationAccent, in: Capsule(style: .continuous))
-                    }
-                    .buttonStyle(.plain)
+                    Button(doneTitle, action: onDone)
+                        .buttonStyle(.purge(.primary, size: .large, width: .fixed(300)))
                     .keyboardShortcut(.defaultAction)
                     .disabled(!footerVisible)
                 }
@@ -719,7 +704,7 @@ struct SafeCleanupCelebrationOverlay: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.14))
+                        .fill(AppColors.fillSecondaryPressed)
                     Capsule(style: .continuous)
                         .fill(celebrationAccent)
                         .frame(width: max(0, min(1, displayedFraction)) * geo.size.width)
@@ -728,8 +713,8 @@ struct SafeCleanupCelebrationOverlay: View {
             .frame(height: 4)
 
             Text(currentItemText)
-                .font(.system(.body, design: .rounded, weight: .medium))
-                .foregroundStyle(.secondary)
+                .font(AppStyle.Typography.body.weight(.medium))
+                .foregroundStyle(AppColors.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
@@ -951,10 +936,6 @@ struct SafeCleanupCelebrationOverlay: View {
     }
 }
 
-private enum CompletionCelebrationAccent {
-    static let timeHighlight = Color(red: 1, green: 0.78, blue: 0.05)
-}
-
 private struct CompletionTimeTagline: View {
     let elapsedSeconds: Double
     let boltFlashToken: Int
@@ -974,18 +955,18 @@ private struct CompletionTimeTagline: View {
             } else {
                 Image(systemName: "clock")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(AppColors.textTertiary)
             }
 
             HStack(spacing: 0) {
                 Text("done in ")
                     .fontWeight(.regular)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                 Text(timeText)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(AppColors.textSecondary)
             }
-            .font(.system(.body, design: .rounded, weight: .medium))
+            .font(AppStyle.Typography.body.weight(.medium))
             .lineLimit(1)
             .truncationMode(.tail)
         }
@@ -1003,7 +984,7 @@ private struct CompletionBoltAnchor: View {
     @State private var echoGeneration = 0
     @State private var chargeTask: Task<Void, Never>?
 
-    private static let flashColor = CompletionCelebrationAccent.timeHighlight
+    private static let flashColor = AppColors.accentCelebrate
     private static let chargeSpring = Animation.spring(response: 0.58, dampingFraction: 0.62)
 
     var body: some View {
@@ -1014,7 +995,7 @@ private struct CompletionBoltAnchor: View {
 
             ZStack {
                 Image(systemName: "bolt.fill")
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(AppColors.textTertiary)
                     .opacity(isEnergized ? 0 : 1)
                 Image(systemName: "bolt.fill")
                     .foregroundStyle(Self.flashColor)
@@ -1023,7 +1004,7 @@ private struct CompletionBoltAnchor: View {
             .scaleEffect(isEnergized ? 1.12 : 1)
             .rotationEffect(.degrees(isEnergized ? 14 : -12))
         }
-        .font(.caption)
+        .font(AppStyle.Typography.metadata)
         .animation(reduceMotion ? nil : Self.chargeSpring, value: isEnergized)
         .onAppear { reactToToken(flashToken) }
         .onChange(of: flashToken) { reactToToken($0) }
@@ -1125,8 +1106,8 @@ private struct CleanFailureDisclosure: View {
                         .font(.caption2.weight(.semibold))
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
-                .font(.callout)
-                .foregroundStyle(.white.opacity(0.6))
+                .font(AppStyle.Typography.callout)
+                .foregroundStyle(AppColors.textTertiary)
             }
             .buttonStyle(.plain)
 
@@ -1143,8 +1124,8 @@ private struct CleanFailureDisclosure: View {
 
                     if hiddenCount > 0 {
                         Text("+\(hiddenCount) more")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .font(AppStyle.Typography.metadata)
+                            .foregroundStyle(AppColors.textTertiary)
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
@@ -1210,24 +1191,24 @@ private struct NeedsAdministratorPanel: View {
             VStack(spacing: 8) {
                 Image(systemName: "lock.shield")
                     .font(.system(size: 30, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(AppColors.textSecondary)
                     .accessibilityHidden(true)
 
                 Text(title)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .font(AppStyle.Typography.sectionTitle)
+                    .foregroundStyle(AppColors.textPrimary)
                     .multilineTextAlignment(.center)
 
                 if let namesLine {
                     Text(namesLine)
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.6))
+                        .font(AppStyle.Typography.sectionTitle.weight(.regular))
+                        .foregroundStyle(AppColors.textTertiary)
                         .multilineTextAlignment(.center)
                 }
 
                 Text(explanation)
-                    .font(.system(size: 15))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .font(AppStyle.Typography.sectionTitle.weight(.regular))
+                    .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 1)
@@ -1237,43 +1218,24 @@ private struct NeedsAdministratorPanel: View {
 
             VStack(spacing: 12) {
                 Button(action: onPrimaryAction) {
-                    Group {
-                        if isWorking {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(AppColors.buttonPrimaryText)
-                        } else {
-                            Text(primaryTitle)
-                                .font(.system(size: 15, weight: .semibold))
-                        }
+                    if isWorking {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Text(primaryTitle)
                     }
-                    .foregroundStyle(AppColors.buttonPrimaryText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(AppColors.textPrimary, in: Capsule(style: .continuous))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.purge(.primary, size: .large, width: .fill))
                 .disabled(isWorking)
 
                 if isSingle {
-                    Button(action: onRevealInFinder) {
-                        Text("Remove in Finder instead")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.85))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 11)
-                            .background(Color.white.opacity(0.08), in: Capsule(style: .continuous))
-                            .overlay(
-                                Capsule(style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
-                            )
-                    }
-                    .buttonStyle(.plain)
+                    Button("Remove in Finder instead", action: onRevealInFinder)
+                        .buttonStyle(.purge(.secondary, size: .large, width: .fill))
                 }
 
                 Text(trustLine)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .font(AppStyle.Typography.body)
+                    .foregroundStyle(AppColors.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.top, 2)
             }
@@ -1281,12 +1243,12 @@ private struct NeedsAdministratorPanel: View {
         .padding(24)
         .frame(maxWidth: 400)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.white.opacity(0.06))
+            RoundedRectangle(cornerRadius: AppStyle.Radius.xl, style: .continuous)
+                .fill(AppColors.surfaceCard)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.xl, style: .continuous)
+                .strokeBorder(AppColors.borderSubtle, lineWidth: 0.5)
         }
     }
 
@@ -1294,12 +1256,12 @@ private struct NeedsAdministratorPanel: View {
     private var statusLine: some View {
         if isHelperEnabled {
             Label("Secure removal is on", systemImage: "checkmark.seal.fill")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.green)
+                .font(AppStyle.Typography.rowTitle)
+                .foregroundStyle(AppColors.statusSafeText)
         } else if needsApproval {
             Text("In System Settings ▸ Login Items, switch Purge on under \"Background App Activity,\" then come back.")
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.68))
+                .font(AppStyle.Typography.body)
+                .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1316,27 +1278,27 @@ private struct CleanFailureRow: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: failure.reason.systemImage)
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(AppColors.textTertiary)
                 .frame(width: 14, alignment: .center)
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(failure.displayName)
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.78))
+                    .font(AppStyle.Typography.callout)
+                    .foregroundStyle(AppColors.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
                 Text(failure.reason.explanation)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(AppStyle.Typography.metadata)
+                    .foregroundStyle(AppColors.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if failure.reason.showsOpenSettings || failure.reason.showsRetry {
                     HStack(spacing: 10) {
                         if failure.reason.showsOpenSettings {
                             Button("Open Settings", action: onOpenSettings)
-                                .buttonStyle(CleanFailureActionButtonStyle())
+                                .buttonStyle(.purge(.quiet, size: .small))
                         }
                         if failure.reason.showsRetry {
                             Button {
@@ -1350,7 +1312,7 @@ private struct CleanFailureRow: View {
                                     Text(failure.reason.retryTitle)
                                 }
                             }
-                            .buttonStyle(CleanFailureActionButtonStyle())
+                            .buttonStyle(.purge(.quiet, size: .small))
                             .disabled(isRetrying)
                         }
                     }
@@ -1359,14 +1321,6 @@ private struct CleanFailureRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct CleanFailureActionButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.white.opacity(configuration.isPressed ? 0.55 : 0.72))
     }
 }
 
@@ -1505,140 +1459,6 @@ extension AnyTransition {
     }
 }
 
-struct AppButtonStyle: ButtonStyle {
-    enum Variant {
-        case bordered
-        case filled
-        case ghost
-        case destructive
-    }
-
-    var variant: Variant = .bordered
-    var isCapsule: Bool = false
-
-    @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(labelFont)
-            .foregroundStyle(foregroundStyle)
-            .padding(.horizontal, isCapsule ? 14 : 10)
-            .padding(.vertical, isCapsule ? 7 : 6)
-            .background(background(configuration: configuration))
-            .overlay(border)
-            .clipShape(buttonShape)
-            .opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.45)
-            .animation(stateAnimation, value: isEnabled)
-    }
-
-    private var stateAnimation: Animation? {
-        reduceMotion ? nil : .easeInOut(duration: 0.28)
-    }
-
-    private var labelFont: Font {
-        let size: CGFloat = isCapsule ? 13 : 12
-        let design: Font.Design = isCapsule ? .rounded : .default
-        return .system(size: size, weight: .semibold, design: design)
-    }
-
-    private var buttonShape: AnyShape {
-        if isCapsule {
-            return AnyShape(Capsule(style: .continuous))
-        }
-        return AnyShape(RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous))
-    }
-
-    private var foregroundStyle: Color {
-        switch variant {
-        case .bordered, .ghost:
-            return .primary
-        case .filled:
-            return AppColors.buttonPrimaryText
-        case .destructive:
-            return AppColors.tagDangerText
-        }
-    }
-
-    private func background(configuration: Configuration) -> Color {
-        switch variant {
-        case .bordered:
-            return configuration.isPressed ? AppColors.bgOverlay : AppColors.bgElevated
-        case .filled:
-            return AppColors.buttonPrimaryBg
-        case .ghost:
-            return configuration.isPressed ? AppColors.bgOverlay : .clear
-        case .destructive:
-            return AppColors.tagDangerText.opacity(configuration.isPressed ? 0.18 : 0.1)
-        }
-    }
-
-    @ViewBuilder
-    private var border: some View {
-        if isCapsule {
-            Capsule(style: .continuous)
-                .stroke(variant == .filled ? Color.clear : AppColors.buttonSecondaryBorder)
-        } else {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous)
-                .stroke(variant == .filled ? Color.clear : AppColors.buttonSecondaryBorder)
-        }
-    }
-}
-
-/// A delete confirmation's primary button: a solid red fill with white text, the
-/// standard destructive treatment shared by every "move to Trash" sheet. Metrics
-/// track `AppButtonStyle(.bordered)` so it and Cancel keep one height.
-struct SolidDestructiveButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous)
-                    .fill(AppColors.destructiveFill)
-            )
-            .opacity(isEnabled ? (configuration.isPressed ? 0.72 : 1) : 0.45)
-    }
-}
-
-/// Chip title that reserves semibold width so selection doesn't shift neighbors.
-struct AppChipTitle: View {
-    let text: String
-    var isSelected: Bool
-    var size: CGFloat = 13
-
-    var body: some View {
-        ZStack(alignment: .leading) {
-            Text(text)
-                .font(.system(size: size, weight: .semibold))
-                .opacity(0)
-                .accessibilityHidden(true)
-            Text(text)
-                .font(.system(size: size, weight: isSelected ? .semibold : .regular))
-        }
-        .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
-    }
-}
-
-/// Fixed icon slot so filled/outline SF Symbols don't shift chip layout.
-struct AppChipIcon: View {
-    let systemName: String
-    var color: Color
-
-    var body: some View {
-        Image(systemName: systemName)
-            .imageScale(.small)
-            .foregroundStyle(color)
-            .frame(width: 14, height: 14)
-            .accessibilityHidden(true)
-    }
-}
-
 struct AppBadge: View {
     enum Tone {
         case neutral
@@ -1657,9 +1477,9 @@ struct AppBadge: View {
             .foregroundStyle(foregroundColor)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(backgroundColor, in: RoundedRectangle(cornerRadius: AppStyle.Radius.chip, style: .continuous))
+            .background(backgroundColor, in: RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: AppStyle.Radius.chip, style: .continuous)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous)
                     .strokeBorder(borderColor, lineWidth: 0.5)
             }
     }
@@ -1667,30 +1487,30 @@ struct AppBadge: View {
     private var foregroundColor: Color {
         switch tone {
         case .accent: return AppColors.textSecondary
-        case .neutral: return AppColors.tagUnsureText
-        case .safe: return AppColors.tagSafeText
-        case .warning: return AppColors.tagCheckText
-        case .danger: return AppColors.tagDangerText
+        case .neutral: return AppColors.statusUnsureText
+        case .safe: return AppColors.statusSafeText
+        case .warning: return AppColors.statusCheckText
+        case .danger: return AppColors.statusDangerText
         }
     }
 
     private var backgroundColor: Color {
         switch tone {
-        case .accent: return AppColors.bgElevated
-        case .neutral: return AppColors.tagUnsureBg
-        case .safe: return AppColors.tagSafeBg
-        case .warning: return AppColors.tagCheckBg
-        case .danger: return AppColors.tagDangerBg
+        case .accent: return AppColors.fillSecondary
+        case .neutral: return AppColors.statusUnsureFill
+        case .safe: return AppColors.statusSafeFill
+        case .warning: return AppColors.statusCheckFill
+        case .danger: return AppColors.statusDangerFill
         }
     }
 
     private var borderColor: Color {
         switch tone {
         case .accent: return AppColors.borderSubtle
-        case .neutral: return AppColors.tagUnsureText.opacity(0.22)
-        case .safe: return AppColors.tagSafeText.opacity(0.22)
-        case .warning: return AppColors.tagCheckText.opacity(0.22)
-        case .danger: return AppColors.tagDangerText.opacity(0.22)
+        case .neutral: return AppColors.statusUnsureText.opacity(0.22)
+        case .safe: return AppColors.statusSafeText.opacity(0.22)
+        case .warning: return AppColors.statusCheckText.opacity(0.22)
+        case .danger: return AppColors.statusDangerText.opacity(0.22)
         }
     }
 }
@@ -1714,9 +1534,9 @@ private struct AppNavIcon: View {
                 .opacity(currentFillProgress)
                 .scaleEffect(0.86 + (0.14 * currentFillProgress))
         }
-        .font(.system(size: 13, weight: .medium))
+        .font(AppStyle.Typography.rowTitle)
         .frame(width: 16)
-        .foregroundStyle(isSelected ? AppColors.textPrimary : .secondary)
+        .foregroundStyle(isSelected ? AppColors.textPrimary : AppColors.textSecondary)
             .onAppear {
                 fillProgress = isSelected ? 1 : 0
             }
@@ -1782,12 +1602,12 @@ struct AppNavRow: View {
             HStack(spacing: AppStyle.Spacing.xSmall) {
                 AppNavIcon(systemImage: systemImage, isSelected: isSelected)
                 Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                    .font(AppStyle.Typography.body.weight(isSelected ? .semibold : .medium))
                     .lineLimit(1)
                 Spacer(minLength: AppStyle.Spacing.xSmall)
                 accessoryView
             }
-            .foregroundStyle(isSelected ? AppColors.textPrimary : Color.secondary)
+            .foregroundStyle(isSelected ? AppColors.textPrimary : AppColors.textSecondary)
             .padding(.horizontal, SidebarLayout.navRowInnerPadding)
             .padding(.vertical, 6)
             .background(navBackground, in: RoundedRectangle(cornerRadius: SidebarLayout.selectionCornerRadius, style: .continuous))
@@ -1805,9 +1625,9 @@ struct AppNavRow: View {
             EmptyView()
         case .value(let text, let isDimmed):
             Text(text)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .font(AppStyle.Typography.metadataEmphasis)
                 .monospacedDigit()
-                .foregroundStyle(isDimmed ? .quaternary : .tertiary)
+                .foregroundStyle(isDimmed ? AppColors.textTertiary.opacity(0.5) : AppColors.textTertiary)
                 .lineLimit(1)
         case .progress:
             ProgressView()
@@ -1820,10 +1640,10 @@ struct AppNavRow: View {
 
     private var navBackground: Color {
         if isSelected {
-            return AppColors.bgElevated
+            return AppColors.fillSecondary
         }
         if isHovering {
-            return AppColors.bgOverlay
+            return AppColors.surfaceRaised
         }
         return .clear
     }
@@ -1842,7 +1662,7 @@ struct AppSortMenu: View {
             Label(selection.shortDisplayName, systemImage: "arrow.up.arrow.down")
                 .labelStyle(.titleAndIcon)
         }
-        .buttonStyle(AppButtonStyle(variant: .bordered))
+        .buttonStyle(.purge(.secondary))
         .fixedSize()
         .accessibilityLabel("Sort by \(selection.displayName)")
     }

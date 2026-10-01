@@ -159,7 +159,7 @@ struct UninstallView: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .task {
             store.requestScanIfNeeded(.apps, .leftovers)
         }
@@ -237,7 +237,7 @@ struct UninstallView: View {
                     .padding(.bottom, AppStyle.Spacing.large)
                 }
                 .scrollContentBackground(.hidden)
-                .background(AppColors.bgBase)
+                .background(AppColors.surfaceBase)
             }
         }
     }
@@ -460,7 +460,7 @@ struct UninstallView: View {
             .padding(.bottom, AppStyle.Spacing.large)
         }
         .scrollContentBackground(.hidden)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         // Layout animations may draw a moving row beyond its final slot.
         // Keep that intermediate drawing inside the visible collection viewport.
         .clipped()
@@ -502,7 +502,7 @@ struct UninstallView: View {
             .padding(.bottom, AppStyle.Spacing.large)
         }
         .scrollContentBackground(.hidden)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         // Reordering edge tiles must not paint over the surrounding window.
         .clipped()
     }
@@ -551,7 +551,7 @@ struct UninstallView: View {
             .padding(.bottom, AppStyle.Spacing.large)
         }
         .scrollContentBackground(.hidden)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Finding leftovers from deleted apps")
     }
@@ -568,7 +568,7 @@ struct UninstallView: View {
             .padding(.bottom, AppStyle.Spacing.large)
         }
         .scrollContentBackground(.hidden)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Finding installed apps")
     }
@@ -587,7 +587,7 @@ struct UninstallView: View {
             .padding(.bottom, AppStyle.Spacing.large)
         }
         .scrollContentBackground(.hidden)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Finding installed apps")
     }
@@ -598,11 +598,11 @@ struct UninstallView: View {
         VStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(.system(size: 38))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
             Text(title)
-                .font(.title3)
+                .font(AppStyle.Typography.sectionTitle.weight(.regular))
             Text(detail)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -630,7 +630,7 @@ private struct UninstallViewModeSwitcher: View {
         .padding(Self.inset)
         .background {
             Capsule(style: .continuous)
-                .fill(AppColors.bgElevated)
+                .fill(AppColors.fillSecondary)
         }
         .overlay {
             Capsule(style: .continuous)
@@ -658,7 +658,7 @@ private struct UninstallViewModeSwitcher: View {
                     if isOn {
                         Capsule(style: .continuous)
                             // Quiet lift over the track — avoids the native white thumb.
-                            .fill(Color.primary.opacity(0.08))
+                            .fill(AppColors.surfaceRaised)
                     }
                 }
                 .contentShape(Capsule(style: .continuous))
@@ -687,7 +687,7 @@ private struct UninstallItemRow: View {
             Toggle("", isOn: $isSelected)
                 .labelsHidden()
                 .toggleStyle(.checkbox)
-                .tint(AppColors.buttonPrimaryBg)
+                .tint(AppColors.actionPrimary)
                 .disabled(isToggleDisabled)
                 // Leftover list rows select from the whole-row tap, like App Caches.
                 // Review-sheet rows keep a live checkbox because they have no row tap.
@@ -712,7 +712,7 @@ private struct UninstallItemRow: View {
                 if let keptForApp = item.keptForApp {
                     Text("Kept, still used by \(keptForApp)")
                         .font(AppStyle.Typography.metadata)
-                        .foregroundStyle(AppColors.tagCheckText)
+                        .foregroundStyle(AppColors.statusCheckText)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -729,11 +729,11 @@ private struct UninstallItemRow: View {
         .padding(.vertical, AppStyle.Spacing.small)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(isContextMenuActive ? AppColors.bgOverlay : AppColors.bgCard)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(isContextMenuActive ? AppColors.surfaceCardHover : AppColors.surfaceCard)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
         )
         .modifier(OptionalRowTap(enabled: togglesOnRowTap && !isToggleDisabled) {
@@ -782,7 +782,7 @@ private struct AppListRow: View {
             Toggle("", isOn: .constant(isSelected))
                 .labelsHidden()
                 .toggleStyle(.checkbox)
-                .tint(AppColors.buttonPrimaryBg)
+                .tint(AppColors.actionPrimary)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
 
@@ -825,11 +825,11 @@ private struct AppListRow: View {
         .padding(.vertical, AppStyle.Spacing.small)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(isSelected || isHovering || isContextMenuActive ? AppColors.bgOverlay : AppColors.bgCard)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(isSelected || isHovering || isContextMenuActive ? AppColors.surfaceCardHover : AppColors.surfaceCard)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
         )
         .contentShape(Rectangle())
@@ -853,30 +853,30 @@ private struct AppListRow: View {
 private struct SkeletonAppListRow: View {
     var body: some View {
         HStack(spacing: AppStyle.Spacing.small) {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .stroke(Color.secondary.opacity(SkeletonOpacity.medium), lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.xs, style: .continuous)
+                .stroke(AppColors.textSecondary.opacity(SkeletonOpacity.medium), lineWidth: 1)
                 .frame(width: 14, height: 14)
 
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.secondary.opacity(SkeletonOpacity.medium))
+            RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous)
+                .fill(AppColors.textSecondary.opacity(SkeletonOpacity.medium))
                 .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 6) {
-                SkeletonBar(width: 120, height: 12, cornerRadius: 4)
-                SkeletonBar(width: 180, height: 9, cornerRadius: 4)
+                SkeletonBar(width: 120, height: 12, cornerRadius: AppStyle.Radius.xs)
+                SkeletonBar(width: 180, height: 9, cornerRadius: AppStyle.Radius.xs)
             }
 
             Spacer()
-            SkeletonBar(width: 54, height: 10, cornerRadius: 4)
+            SkeletonBar(width: 54, height: 10, cornerRadius: AppStyle.Radius.xs)
         }
         .padding(.horizontal, AppStyle.Spacing.small)
         .padding(.vertical, AppStyle.Spacing.small)
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(AppColors.bgCard)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.surfaceCard)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
         )
         .shimmering()
@@ -922,14 +922,14 @@ private struct AppTile: View {
 
                 Text(isSizePending ? "…" : formatBytes(totalBytes))
                     .font(AppStyle.Typography.metadata)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .monospacedDigit()
                     .contentTransition(.numericText())
 
                 if let activityLabel {
                     Text(activityLabel)
                         .font(AppStyle.Typography.metadata)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -939,12 +939,12 @@ private struct AppTile: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
         .background {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(AppColors.bgElevated)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.fillSecondary)
                 .overlay {
                     if isSelected || isHovering || isContextMenuActive {
-                        RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                            .fill(AppColors.bgOverlay)
+                        RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                            .fill(AppColors.surfaceRaised)
                     }
                 }
         }
@@ -955,9 +955,9 @@ private struct AppTile: View {
                 .padding(10)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .stroke(
-                    isSelected ? AppColors.buttonPrimaryBg : AppColors.borderSubtle,
+                    isSelected ? AppColors.actionPrimary : AppColors.borderSubtle,
                     lineWidth: isSelected ? 2 : 1
                 )
         }
@@ -984,13 +984,13 @@ private struct AppTile: View {
         if isSelected {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 20))
-                .foregroundStyle(AppColors.buttonPrimaryBg)
-                .background(Circle().fill(AppColors.bgElevated).padding(1))
+                .foregroundStyle(AppColors.actionPrimary)
+                .background(Circle().fill(AppColors.fillSecondary).padding(1))
         } else {
             Image(systemName: "circle")
                 .font(.system(size: 20))
                 .foregroundStyle(isHovering ? AppColors.textSecondary : AppColors.textTertiary)
-                .background(Circle().fill(AppColors.bgElevated).padding(1))
+                .background(Circle().fill(AppColors.fillSecondary).padding(1))
         }
     }
 }
@@ -1000,13 +1000,13 @@ private struct AppTile: View {
 private struct SkeletonAppTile: View {
     var body: some View {
         VStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.secondary.opacity(SkeletonOpacity.medium))
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.textSecondary.opacity(SkeletonOpacity.medium))
                 .frame(width: 56, height: 56)
 
             VStack(spacing: 6) {
-                SkeletonBar(width: 96, height: 12, cornerRadius: 4)
-                SkeletonBar(width: 52, height: 10, cornerRadius: 4)
+                SkeletonBar(width: 96, height: 12, cornerRadius: AppStyle.Radius.xs)
+                SkeletonBar(width: 52, height: 10, cornerRadius: AppStyle.Radius.xs)
             }
         }
         .frame(maxWidth: .infinity)
@@ -1014,11 +1014,11 @@ private struct SkeletonAppTile: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
         .background {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(AppColors.bgElevated)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.fillSecondary)
         }
         .overlay {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .stroke(AppColors.borderSubtle, lineWidth: 1)
         }
         .shimmering()
@@ -1053,10 +1053,8 @@ struct UninstallHeaderActions: View {
                     systemImage: isScanning || isQueued ? nil : "arrow.clockwise",
                     isCleaning: isScanning || isQueued
                 )
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
             }
-            .buttonStyle(AppButtonStyle(variant: .bordered, isCapsule: true))
+            .buttonStyle(.purge(.secondary))
             .disabled(isScanning || isQueued)
             .keyboardShortcut("r", modifiers: [.command])
 
@@ -1087,8 +1085,7 @@ struct UninstallHeaderActions: View {
                     CleaningButtonLabel(
                         title: "Preparing...",
                         systemImage: nil,
-                        isCleaning: true,
-                        spinnerTint: AppColors.buttonPrimaryText
+                        isCleaning: true
                     )
                 } else {
                     AnimatedDeleteActionLabel(
@@ -1099,10 +1096,8 @@ struct UninstallHeaderActions: View {
                     )
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
         }
-        .buttonStyle(AppButtonStyle(variant: .destructive, isCapsule: true))
+        .buttonStyle(.purge(.primary))
         .disabled(store.selectedAppIDs.isEmpty || store.isBuildingUninstallPlan || store.isDeleting)
         .transition(.opacity)
     }
@@ -1117,10 +1112,8 @@ struct UninstallHeaderActions: View {
                 selectedCount: store.selectedOrphanCount,
                 selectedBytes: store.selectedOrphanBytes
             )
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
         }
-        .buttonStyle(AppButtonStyle(variant: .destructive, isCapsule: true))
+        .buttonStyle(.purge(.primary))
         .disabled(store.selectedOrphanCount == 0 || store.isDeleting)
         .transition(.opacity)
     }
@@ -1161,7 +1154,7 @@ struct UninstallReviewSheet: View {
         }
         .padding(AppStyle.Spacing.large)
         .frame(minWidth: 600, minHeight: 540)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     private var header: some View {
@@ -1171,7 +1164,7 @@ struct UninstallReviewSheet: View {
                 .foregroundStyle(AppColors.textPrimary)
 
             Text("Purge moves each app and the items you keep ticked to the Trash. Nothing is deleted for good, so you can put anything back if you change your mind.")
-                .font(.callout)
+                .font(AppStyle.Typography.callout)
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1203,7 +1196,7 @@ struct UninstallReviewSheet: View {
                 if app.isRunning {
                     Text("will be quit first")
                         .font(AppStyle.Typography.metadata)
-                        .foregroundStyle(AppColors.tagCheckText)
+                        .foregroundStyle(AppColors.statusCheckText)
                 }
                 Spacer()
                 Text(formatBytes(appPlan.wrappedValue.selectedBytes))
@@ -1255,13 +1248,13 @@ struct UninstallReviewSheet: View {
             Spacer()
 
             Button("Cancel", action: onCancel)
-                .buttonStyle(AppButtonStyle(variant: .bordered))
+                .buttonStyle(.purge(.secondary))
                 .keyboardShortcut(.cancelAction)
 
             Button("Move \(plan.totalSelectedItems) to Trash") {
                 onConfirm(plan)
             }
-            .buttonStyle(SolidDestructiveButtonStyle())
+            .buttonStyle(.purge(.destructive))
             .keyboardShortcut(.defaultAction)
             .disabled(plan.totalSelectedItems == 0)
         }
@@ -1306,7 +1299,7 @@ struct OrphanReviewSheet: View {
         }
         .padding(AppStyle.Spacing.large)
         .frame(minWidth: 600, minHeight: 520)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     private var header: some View {
@@ -1315,7 +1308,7 @@ struct OrphanReviewSheet: View {
                 .font(AppStyle.Typography.pageTitle)
                 .foregroundStyle(AppColors.textPrimary)
             Text("These folders belong to apps you no longer have installed. This is app data, not a rebuildable cache, so it will not come back on its own. Everything moves to the Trash, so you can put it back until you empty it.")
-                .font(.callout)
+                .font(AppStyle.Typography.callout)
                 .foregroundStyle(AppColors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -1330,13 +1323,13 @@ struct OrphanReviewSheet: View {
             Spacer()
 
             Button("Cancel", action: onCancel)
-                .buttonStyle(AppButtonStyle(variant: .bordered))
+                .buttonStyle(.purge(.secondary))
                 .keyboardShortcut(.cancelAction)
 
             Button("Move \(plan.totalSelectedItems) to Trash") {
                 onConfirm(plan)
             }
-            .buttonStyle(SolidDestructiveButtonStyle())
+            .buttonStyle(.purge(.destructive))
             .keyboardShortcut(.defaultAction)
             .disabled(plan.totalSelectedItems == 0)
         }
@@ -1383,7 +1376,7 @@ struct RemovedAppLeftoverSheet: View {
         }
         .padding(AppStyle.Spacing.large)
         .frame(minWidth: 600, minHeight: 460)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     private var appIcon: NSImage {
@@ -1405,7 +1398,7 @@ struct RemovedAppLeftoverSheet: View {
                     .font(AppStyle.Typography.pageTitle)
                     .foregroundStyle(AppColors.textPrimary)
                 Text("\(plan.app.name) was removed from Applications, but these files are still on your Mac. Anything you keep ticked moves to the Trash, so you can put it back until you empty it.")
-                    .font(.callout)
+                    .font(AppStyle.Typography.callout)
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1421,13 +1414,13 @@ struct RemovedAppLeftoverSheet: View {
             Spacer()
 
             Button("Keep Files", action: onCancel)
-                .buttonStyle(AppButtonStyle(variant: .bordered))
+                .buttonStyle(.purge(.secondary))
                 .keyboardShortcut(.cancelAction)
 
             Button("Move \(plan.totalSelectedItems) to Trash") {
                 onConfirm(plan)
             }
-            .buttonStyle(SolidDestructiveButtonStyle())
+            .buttonStyle(.purge(.destructive))
             .keyboardShortcut(.defaultAction)
             .disabled(plan.totalSelectedItems == 0)
         }
@@ -1456,7 +1449,7 @@ private struct UninstallSearchField: View {
 
             TextField("Search apps", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 13))
+                .font(AppStyle.Typography.body)
                 .foregroundStyle(AppColors.textPrimary)
                 .focused($isFocused)
                 .focusEffectDisabledIfAvailable()
@@ -1485,12 +1478,12 @@ private struct UninstallSearchField: View {
         .padding(.vertical, 5)
         .frame(width: 180)
         .background {
-            Capsule(style: .continuous).fill(AppColors.bgElevated)
+            Capsule(style: .continuous).fill(AppColors.fillSecondary)
         }
         .overlay {
             Capsule(style: .continuous)
                 .strokeBorder(
-                    isFocused ? AppColors.buttonPrimaryBg : AppColors.borderSubtle,
+                    isFocused ? AppColors.actionPrimary : AppColors.borderSubtle,
                     lineWidth: 1
                 )
         }

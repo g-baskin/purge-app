@@ -83,8 +83,8 @@ struct LookDeeperView: View {
           .onboardingBlurIn(index: 0)
 
         Text(leadText)
-          .font(.title3)
-          .foregroundStyle(.secondary)
+          .font(AppStyle.Typography.sectionTitle.weight(.regular))
+          .foregroundStyle(AppColors.textSecondary)
           .multilineTextAlignment(.center)
           .fixedSize(horizontal: false, vertical: true)
           .onboardingBlurIn(index: 1)
@@ -108,8 +108,8 @@ struct LookDeeperView: View {
         }
 
         Text("macOS calls this Full Disk Access. Turn it off anytime in System Settings.")
-          .font(.caption)
-          .foregroundStyle(.tertiary)
+          .font(AppStyle.Typography.metadata)
+          .foregroundStyle(AppColors.textTertiary)
           .multilineTextAlignment(.center)
           .fixedSize(horizontal: false, vertical: true)
       }
@@ -122,8 +122,8 @@ struct LookDeeperView: View {
 
         if didOpenSettings {
           Text("Turn on Purge in System Settings, then come back. If macOS offers to reopen Purge, go ahead.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .font(AppStyle.Typography.metadata)
+            .foregroundStyle(AppColors.textSecondary)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
             .transition(.opacity)
@@ -138,8 +138,8 @@ struct LookDeeperView: View {
     VStack(spacing: AppStyle.Spacing.small) {
       OnboardingLoadingStepTitle(baseText: "Looking deeper")
       Text("Checking the places that were locked.")
-        .font(.title3)
-        .foregroundStyle(.secondary)
+        .font(AppStyle.Typography.sectionTitle.weight(.regular))
+        .foregroundStyle(AppColors.textSecondary)
     }
     .transition(OnboardingTransitions.stepTransition(reduceMotion: reduceMotion))
   }
@@ -150,11 +150,11 @@ struct LookDeeperView: View {
       if findings.isWorthLeadingWith {
         VStack(spacing: 0) {
           Text(formatBytes(findings.bytes))
-            .font(.system(size: 56, weight: .bold, design: .rounded))
+            .font(AppStyle.Typography.display)
             .monospacedDigit()
           Text("more to clean, from places that were locked")
-            .font(.title2.weight(.medium))
-            .foregroundStyle(.secondary)
+            .font(AppStyle.Typography.sectionTitle.weight(.medium))
+            .foregroundStyle(AppColors.textSecondary)
             .multilineTextAlignment(.center)
         }
         .accessibilityElement(children: .combine)
@@ -173,15 +173,15 @@ struct LookDeeperView: View {
         .frame(maxWidth: 300)
 
         Text("Large Files and the uninstaller are open now too.")
-          .font(.callout)
-          .foregroundStyle(.secondary)
+          .font(AppStyle.Typography.callout)
+          .foregroundStyle(AppColors.textSecondary)
           .onboardingBlurIn(index: findings.categories.count + 1)
       } else {
         OnboardingStepTitle(text: "Purge can see everything now")
           .onboardingBlurIn(index: 0)
         Text(Self.smallFindingsMessage(findings))
-          .font(.title3)
-          .foregroundStyle(.secondary)
+          .font(AppStyle.Typography.sectionTitle.weight(.regular))
+          .foregroundStyle(AppColors.textSecondary)
           .multilineTextAlignment(.center)
           .fixedSize(horizontal: false, vertical: true)
           .onboardingBlurIn(index: 1)
@@ -284,19 +284,19 @@ private struct LookDeeperTile: View {
     VStack(spacing: AppStyle.Spacing.xSmall) {
       Image(systemName: symbol)
         .font(.system(size: 20, weight: .regular))
-        .foregroundStyle(.secondary)
+        .foregroundStyle(AppColors.textSecondary)
         .frame(height: 24)
         .accessibilityHidden(true)
       Text(text)
-        .font(.callout)
+        .font(AppStyle.Typography.callout)
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
     }
     .frame(maxWidth: .infinity, minHeight: 88)
     .padding(.horizontal, AppStyle.Spacing.small)
-    .background(AppColors.bgCard, in: RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous))
+    .background(AppColors.surfaceCard, in: RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous))
     .overlay {
-      RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+      RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
         .stroke(AppColors.borderSubtle)
     }
     .accessibilityElement(children: .combine)
@@ -317,8 +317,8 @@ private struct LookDeeperPromise: View {
         .frame(width: 18)
         .accessibilityHidden(true)
     }
-    .font(.callout)
-    .foregroundStyle(.secondary)
+    .font(AppStyle.Typography.callout)
+    .foregroundStyle(AppColors.textSecondary)
     .fixedSize()
   }
 }
@@ -341,7 +341,7 @@ struct LookDeeperSheet: View {
     )
     .padding(Self.padding)
     .frame(width: Self.width)
-    .background(AppColors.bgBase)
+    .background(AppColors.surfaceBase)
   }
 }
 

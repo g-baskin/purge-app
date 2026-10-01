@@ -83,12 +83,12 @@ struct AppDropdown<Option: Hashable, Trigger: View>: View {
         }
         .padding(6)
         .frame(width: popupWidth)
-        .background(AppColors.bgOverlay)
+        .background(AppColors.surfaceRaised)
         .overlay(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle)
         )
-        .clipShape(RoundedRectangle(cornerRadius: AppStyle.Radius.control, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppStyle.Radius.md, style: .continuous))
     }
 }
 
@@ -104,23 +104,23 @@ private struct AppDropdownRow: View {
         Button(action: onSelect) {
             HStack(spacing: 6) {
                 Text(label)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary)
+                    .font(AppStyle.Typography.body)
+                    .foregroundStyle(AppColors.textPrimary)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
 
                 Image(systemName: "checkmark")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AppColors.textPrimary)
                     .opacity(isSelected ? 1 : 0)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                isHovered && isEnabled ? AppColors.bgElevated : .clear,
-                in: RoundedRectangle(cornerRadius: AppStyle.Radius.chip, style: .continuous)
+                isHovered && isEnabled ? AppColors.fillSecondary : .clear,
+                in: RoundedRectangle(cornerRadius: AppStyle.Radius.sm, style: .continuous)
             )
             .contentShape(Rectangle())
             .opacity(isEnabled ? 1 : 0.4)

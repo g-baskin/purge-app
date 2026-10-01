@@ -19,22 +19,22 @@ struct OnboardingCelebrationView: View {
       VStack(spacing: AppStyle.Spacing.small) {
         if bytesMovedToTrash > 0 {
           Text(formatBytes(Int64(animatedMovedBytes)))
-            .font(.system(size: 52, weight: .bold, design: .rounded))
+            .font(AppStyle.Typography.display)
             .contentTransition(.numericText())
             .monospacedDigit()
             .accessibilityLabel("\(formatBytes(bytesMovedToTrash)) moved to trash, not yet reclaimed")
 
           Text("moved to trash, not yet reclaimed")
-            .font(.title2.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .font(AppStyle.Typography.sectionTitle)
+            .foregroundStyle(AppColors.textSecondary)
         } else {
           Text("You're all set")
-            .font(.system(size: 40, weight: .bold, design: .rounded))
+            .font(AppStyle.Typography.displaySmall)
         }
 
         Text(spaceContextLine)
-          .font(.body)
-          .foregroundStyle(.secondary)
+          .font(AppStyle.Typography.body)
+          .foregroundStyle(AppColors.textSecondary)
           .multilineTextAlignment(.center)
           .fixedSize(horizontal: false, vertical: true)
           .padding(.top, AppStyle.Spacing.xSmall)
@@ -46,8 +46,8 @@ struct OnboardingCelebrationView: View {
       VStack(spacing: AppStyle.Spacing.small) {
         if bytesMovedToTrash > 0 {
           Text("Empty your Trash to reclaim this space.")
-            .font(.callout)
-            .foregroundStyle(.tertiary)
+            .font(AppStyle.Typography.callout)
+            .foregroundStyle(AppColors.textTertiary)
             .multilineTextAlignment(.center)
         }
 
@@ -58,7 +58,7 @@ struct OnboardingCelebrationView: View {
     .padding(.horizontal, OnboardingLayout.horizontalPadding)
     .padding(.vertical, OnboardingLayout.verticalPadding)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(AppColors.bgBase)
+    .background(AppColors.surfaceBase)
     .onAppear {
       if bytesMovedToTrash > 0 {
         withAnimation(.easeOut(duration: 0.85)) {

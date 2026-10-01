@@ -55,7 +55,7 @@ struct ScanListRow<Footer: View>: View {
                     if let subtitle, !subtitle.isEmpty {
                         Text(subtitle)
                             .font(AppStyle.Typography.metadata)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                             .lineLimit(2)
                     }
                 }
@@ -68,7 +68,7 @@ struct ScanListRow<Footer: View>: View {
                     VStack(alignment: .trailing, spacing: 8) {
                         Text(formattedSize)
                             .font(AppStyle.Typography.metadata)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                             .monospacedDigit()
 
                         if let primaryBadgeText {
@@ -84,28 +84,28 @@ struct ScanListRow<Footer: View>: View {
         .padding(.vertical, 10)
         .frame(minHeight: AppStyle.Row.listRowMinHeight, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.panel, style: .continuous)
-                .fill(AppColors.bgElevated)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.fillSecondary)
                 .overlay {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: AppStyle.Radius.panel, style: .continuous)
-                            .fill(AppColors.bgOverlay)
+                        RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                            .fill(AppColors.surfaceRaised)
                     } else if isHovering {
-                        RoundedRectangle(cornerRadius: AppStyle.Radius.panel, style: .continuous)
-                            .fill(AppColors.bgOverlay)
+                        RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                            .fill(AppColors.surfaceRaised)
                     }
                 }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: AppStyle.Radius.panel, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .stroke(AppColors.borderSubtle)
         }
     }
 
     private var trailingMetadataSkeleton: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            SkeletonBar(width: 56, height: 10, cornerRadius: 4)
-            SkeletonBar(width: 92, height: 18, cornerRadius: AppStyle.Radius.chip)
+            SkeletonBar(width: 56, height: 10, cornerRadius: AppStyle.Radius.xs)
+            SkeletonBar(width: 92, height: 18, cornerRadius: AppStyle.Radius.sm)
         }
         .shimmering()
     }
@@ -116,16 +116,16 @@ struct ScanListRow<Footer: View>: View {
         case .symbol(let name):
             Image(systemName: name)
                 .font(.system(size: 20))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
                 .frame(width: 28, height: 28)
         case .image(let image):
             Image(nsImage: image)
                 .resizable()
                 .frame(width: 28, height: 28)
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: AppStyle.Radius.xs, style: .continuous))
                 .opacity(0.88)
         case .brand(let source):
-            AdaptiveBrandIconImage(source: source, cornerRadius: 4)
+            AdaptiveBrandIconImage(source: source)
         }
     }
 }

@@ -43,7 +43,7 @@ struct DeletionConfirmSheet: View {
         }
         .padding(AppStyle.Spacing.large)
         .frame(minWidth: 580, minHeight: showsElevatedRiskLayout ? 520 : 500)
-        .background(AppColors.bgBase)
+        .background(AppColors.surfaceBase)
     }
 
     private func locationLabel(for item: PurgeStore.DeletionCandidate) -> String {
@@ -60,7 +60,7 @@ struct DeletionConfirmSheet: View {
                     .foregroundStyle(AppColors.textPrimary)
 
                 Text("Purge moves these to Trash. You can put anything back if you change your mind.")
-                    .font(.callout)
+                    .font(AppStyle.Typography.callout)
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -120,14 +120,14 @@ struct DeletionConfirmSheet: View {
         HStack(alignment: .top, spacing: AppStyle.Spacing.small) {
             Image(systemName: "questionmark.circle.fill")
                 .font(.system(size: 26))
-                .foregroundStyle(AppColors.tagCheckText)
+                .foregroundStyle(AppColors.statusCheckText)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: AppStyle.Spacing.xxSmall) {
                 Text("Some of these aren't identified")
                     .font(AppStyle.Typography.pageTitle)
                     .foregroundStyle(AppColors.textPrimary)
                 Text("Purge couldn't identify every folder you picked. Only continue if you know it's safe to remove. You'll confirm once more before anything moves.")
-                    .font(.callout)
+                    .font(AppStyle.Typography.callout)
                     .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -166,7 +166,7 @@ struct DeletionConfirmSheet: View {
                         .truncationMode(.middle)
                     if let command = item.reinstallCommand, !command.isEmpty {
                         Text(command)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(AppStyle.Typography.metadata)
                             .foregroundStyle(AppColors.textTertiary)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -196,11 +196,11 @@ struct DeletionConfirmSheet: View {
         .padding(.vertical, AppStyle.Spacing.small)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                .fill(AppColors.bgCard)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                .fill(AppColors.surfaceCard)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
                 .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
         )
     }
@@ -212,16 +212,16 @@ struct DeletionConfirmSheet: View {
         switch level {
         case .safe:
             text = "Safe"
-            fg = AppColors.tagSafeText
-            bg = AppColors.tagSafeBg
+            fg = AppColors.statusSafeText
+            bg = AppColors.statusSafeFill
         case .medium:
             text = "Check first"
-            fg = AppColors.tagCheckText
-            bg = AppColors.tagCheckBg
+            fg = AppColors.statusCheckText
+            bg = AppColors.statusCheckFill
         case .unknown:
             text = "Not sure"
-            fg = AppColors.tagDangerText
-            bg = AppColors.tagDangerBg
+            fg = AppColors.statusDangerText
+            bg = AppColors.statusDangerFill
         }
         return Text(text)
             .font(AppStyle.Typography.metadataEmphasis)
@@ -240,13 +240,13 @@ struct DeletionConfirmSheet: View {
             Spacer()
 
             Button("Cancel", action: onCancel)
-                .buttonStyle(AppButtonStyle(variant: .bordered))
+                .buttonStyle(.purge(.secondary))
                 .keyboardShortcut(.cancelAction)
 
             Button(primaryTitle) {
                 onConfirm()
             }
-            .buttonStyle(SolidDestructiveButtonStyle())
+            .buttonStyle(.purge(.destructive))
             .keyboardShortcut(.defaultAction)
         }
     }

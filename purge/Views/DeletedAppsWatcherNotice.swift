@@ -25,8 +25,8 @@ struct DeletedAppsWatcherNoticeCard: View {
     let onTurnOff: () -> Void
 
     private enum NoticeFont {
-        static let title = Font.system(size: 12, weight: .semibold, design: .rounded)
-        static let body = Font.system(size: 11, weight: .medium, design: .rounded)
+        static let title = AppStyle.Typography.callout.weight(.semibold)
+        static let body = AppStyle.Typography.metadataEmphasis
     }
 
     var body: some View {
@@ -35,7 +35,7 @@ struct DeletedAppsWatcherNoticeCard: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppColors.tagCheckText)
+                        .foregroundStyle(AppColors.statusCheckText)
                         .accessibilityHidden(true)
 
                     Text(WatcherHealth.problemTitle)
@@ -45,7 +45,7 @@ struct DeletedAppsWatcherNoticeCard: View {
 
                 Text(message)
                     .font(NoticeFont.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, AppStyle.Spacing.xxSmall)
 
@@ -55,34 +55,29 @@ struct DeletedAppsWatcherNoticeCard: View {
                     CleaningButtonLabel(
                         title: isRestarting ? "Restarting…" : fixTitle,
                         systemImage: nil,
-                        isCleaning: isRestarting,
-                        spinnerTint: AppColors.buttonPrimaryText
+                        isCleaning: isRestarting
                     )
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
                 }
-                .buttonStyle(AppButtonStyle(variant: .filled, isCapsule: true))
+                .buttonStyle(.purge(.primary))
                 .disabled(isRestarting)
                 .padding(.top, AppStyle.Spacing.small)
 
                 Button("Turn Off", action: onTurnOff)
-                    .buttonStyle(.plain)
-                    .font(NoticeFont.body)
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(.purge(.quiet, size: .small))
                     .frame(maxWidth: .infinity)
-                    .padding(.top, AppStyle.Spacing.xSmall)
+                    .padding(.top, AppStyle.Spacing.xxSmall)
                     .help("Stop reviewing leftovers when an app is deleted")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(AppStyle.Spacing.small)
             .background(
-                RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                    .fill(AppColors.bgElevated)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                    .fill(AppColors.fillSecondary)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: AppStyle.Radius.card, style: .continuous)
-                    .strokeBorder(AppColors.tagCheckText.opacity(0.35), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                    .strokeBorder(AppColors.statusCheckText.opacity(0.35), lineWidth: 0.5)
             }
             .accessibilityElement(children: .contain)
             .transition(.opacity)
