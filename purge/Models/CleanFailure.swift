@@ -2,6 +2,8 @@ import Foundation
 
 nonisolated enum CleanFailureReason: Equatable, Error {
     case needsFullDiskAccess
+    /// macOS blocked removing another app (Privacy & Security → App Management).
+    case needsAppManagement
     case inUse
     case systemProtected
     case unknown
@@ -10,6 +12,8 @@ nonisolated enum CleanFailureReason: Equatable, Error {
         switch self {
         case .needsFullDiskAccess:
             "Purge needs Full Disk Access to remove this."
+        case .needsAppManagement:
+            "macOS blocked Purge from removing this app, so its files were kept too. Allow Purge under App Management in Privacy & Security, then uninstall again."
         case .inUse:
             "An app is still using this. Quit it and clean again."
         case .systemProtected:
@@ -23,6 +27,8 @@ nonisolated enum CleanFailureReason: Equatable, Error {
         switch self {
         case .needsFullDiskAccess:
             "lock.fill"
+        case .needsAppManagement:
+            "hand.raised.fill"
         case .inUse:
             "app.badge.fill"
         case .systemProtected:
@@ -33,7 +39,7 @@ nonisolated enum CleanFailureReason: Equatable, Error {
     }
 
     var showsOpenSettings: Bool {
-        self == .needsFullDiskAccess
+        self == .needsFullDiskAccess || self == .needsAppManagement
     }
 
     var showsRetry: Bool {

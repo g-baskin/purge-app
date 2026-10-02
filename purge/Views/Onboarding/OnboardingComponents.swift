@@ -570,6 +570,14 @@ extension View {
   }
 }
 
+/// Privacy & Security → App Management, where Purge can be allowed to remove other apps.
+func openAppManagementSettings() {
+  guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles") else {
+    return
+  }
+  NSWorkspace.shared.open(url)
+}
+
 func openFullDiskAccessSettings() {
   guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") else {
     return

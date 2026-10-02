@@ -537,8 +537,10 @@ private struct LargeFileSelectAllBar: View {
 /// look on each of the two containers `LargeFilesView` renders into. Geometry and
 /// tokens here are copied from `FilterChip` so it reads as one control family with
 /// the size and last-used menus sitting beside it.
-private struct LargeFileSearchField: View {
+struct LargeFileSearchField: View {
     @Binding var query: String
+    /// Also used by the Uninstaller tab, which searches apps instead of files.
+    var accessibilityText = "Search large files by name"
 
     @FocusState private var isFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -563,7 +565,7 @@ private struct LargeFileSearchField: View {
                 .font(.system(size: Self.labelSize))
                 .foregroundStyle(AppColors.textPrimary)
                 .focused($isFocused)
-                .accessibilityLabel("Search large files by name")
+                .accessibilityLabel(accessibilityText)
                 // Escape clears rather than just unfocusing: an emptied field is the
                 // state the user wants back, and it's the one AppKit search fields
                 // give them.

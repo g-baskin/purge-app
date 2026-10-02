@@ -45,6 +45,7 @@ final class PurgeStore: ObservableObject {
         case appCaches = "App Caches"
         case devTools = "Dev Tools"
         case largeFiles = "Large Files"
+        case apps = "Uninstaller"
         case settings = "Settings"
         case about = "About"
 
@@ -54,6 +55,7 @@ final class PurgeStore: ObservableObject {
             case .appCaches: return "internaldrive"
             case .devTools: return "hammer"
             case .largeFiles: return "tray.full"
+            case .apps: return "xmark.app"
             case .settings: return "gearshape"
             case .about: return "info.circle"
             }
@@ -126,6 +128,15 @@ final class PurgeStore: ObservableObject {
     let scanSelection = ScanSelection()
     @Published var isScanningLargeFiles = false
     @Published var showLargeFileDeletionSheet = false
+    /// Third-party apps in the Applications folders, for the Uninstaller tab.
+    @Published private(set) var installedApps: [InstalledApp] = []
+    @Published private(set) var isScanningApps = false
+    @Published private(set) var hasScannedApps = false
+    /// The app whose files are being found, before its review sheet opens.
+    @Published private(set) var appBeingReviewedID: String?
+    /// Drives the uninstall review sheet.
+    @Published var appUninstallReview: AppUninstallReview?
+    private var appScanGeneration = 0
     /// Best-effort git status keyed by standardized tool path (`URL.path`).
     @Published private(set) var devToolRepoStatusByPath: [String: GitWorktreeStatus] = [:]
     @Published var isScanningGeneral = false
@@ -937,6 +948,133 @@ final class PurgeStore: ObservableObject {
             manualDeletionSession = nil
             errorMessage = "Unable to delete the selected files. Please try again."
         }
+    }
+
+    // MARK: - Uninstaller
+
+    func scanInstalledAppsIfNeeded() async {
+        guard !hasScannedApps, !isScanningApps else { return }
+        await scanInstalledApps()
+    }
+
+    /// Lists the apps straight away, then fills in their sizes.
+    func scanInstalledApps() async {
+        appScanGeneration += 1
+        let generation = appScanGeneration
+        isScanningApps = true
+        defer {
+            if appScanGeneration == generation { isScanningApps = false }
+        }
+
+        let policy = AppUninstallPolicy.live()
+        let listed = await Task.detached(priority: .userInitiated) {
+            InstalledAppIndex.scan(policy: policy)
+        }.value
+        guard appScanGeneration == generation else { return }
+        installedApps = listed
+        hasScannedApps = true
+
+        let sized = await Task.detached(priority: .utility) {
+            InstalledAppIndex.withMeasuredSizes(listed)
+        }.value
+        guard appScanGeneration == generation else { return }
+        installedApps = sized
+    }
+
+    /// Finds the app's files, then opens the review sheet. Nothing moves here.
+    func reviewUninstall(of app: InstalledApp) async {
+        guard appBeingReviewedID == nil, !isDeleting else { return }
+        appBeingReviewedID = app.id
+        defer { appBeingReviewedID = nil }
+
+        let policy = AppUninstallPolicy.live()
+        let context = AppCatalogContext(apps: installedApps, excluding: app)
+        // Re-read the bundle: it may have been updated or removed since the list loaded.
+        let fresh = await Task.detached(priority: .userInitiated) {
+            InstalledAppIndex.makeApp(at: app.bundleURL, policy: policy)
+        }.value
+        guard let fresh, fresh.bundleID.caseInsensitiveCompare(app.bundleID) == .orderedSame else {
+            errorMessage = "\(app.displayName) changed or was removed since the list loaded. Scan again."
+            await scanInstalledApps()
+            return
+        }
+        var current = fresh
+        current.sizeBytes = app.sizeBytes
+        let snapshot = current
+        let related = await Task.detached(priority: .userInitiated) {
+            AppFootprintScanner.relatedItems(for: snapshot, context: context, policy: policy)
+        }.value
+        appUninstallReview = AppUninstallReview(app: current, relatedItems: related, context: context)
+    }
+
+    func dismissAppUninstallReview() {
+        appUninstallReview = nil
+    }
+
+    func isAppRunning(_ app: InstalledApp) -> Bool {
+        NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).contains { running in
+            running.bundleURL?.standardizedFileURL.path == app.bundleURL.path
+        }
+    }
+
+    /// Moves the app (when chosen) and the chosen files to the Trash, with the
+    /// same progress screen, summary and history as other cleans.
+    func confirmAppUninstall(
+        _ review: AppUninstallReview,
+        includeApp: Bool,
+        selectedItemIDs: Set<String>
+    ) async {
+        appUninstallReview = nil
+        let app = review.app
+        let items = review.relatedItems.filter { selectedItemIDs.contains($0.id) }
+        let removesApp = includeApp && app.canMoveBundle
+        guard removesApp || !items.isEmpty, !isDeleting else { return }
+        // Checked again here: the app may have opened after the sheet last looked.
+        if isAppRunning(app) {
+            errorMessage = "\(app.displayName) is open. Quit it, then try again."
+            return
+        }
+
+        let progressBuffer = DeletionProgressBuffer()
+        let totalBytes = (removesApp ? app.sizeBytes ?? 0 : 0) + items.reduce(Int64(0)) { $0 + $1.sizeBytes }
+        let liveSession = DeletionSession(totalBytes: totalBytes, totalItems: items.count + (removesApp ? 1 : 0))
+        manualDeletionSession = liveSession
+        let progressPoller = Task { @MainActor [weak liveSession] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                guard let liveSession, liveSession.phase == .cleaning else { return }
+                liveSession.applyProgress(progressBuffer.snapshot())
+            }
+        }
+
+        isDeleting = true
+        errorMessage = nil
+        defer {
+            isDeleting = false
+            progressPoller.cancel()
+        }
+
+        let engineStart = Date()
+        let report = await fileDeleter.uninstallApp(
+            app,
+            includeAppBundle: removesApp,
+            relatedItems: items,
+            context: review.context,
+            onProgress: { @Sendable event in progressBuffer.ingest(event) }
+        )
+        incrementMovedToTrashTotal(by: report.bytesMovedToTrash)
+        lastDeletionReport = report
+        if report.deletedItems.contains(where: { $0.path == app.bundleURL.path }) {
+            installedApps.removeAll { $0.id == app.id }
+        }
+        progressPoller.cancel()
+        liveSession.completeRun(
+            bytesMovedToTrash: report.bytesMovedToTrash,
+            elapsedSeconds: Date().timeIntervalSince(engineStart),
+            failedItems: report.userVisibleFailures,
+            movedToTrashCount: report.movedToTrashCount
+        )
+        CleanupHistoryStore.shared.append(trigger: .manual, report: report)
     }
 
     func refreshPermission() {

@@ -43,7 +43,11 @@ final class CleanupHistoryStore: ObservableObject {
 
     func append(trigger: CleanupTrigger, report: DeletionReport) {
         let items = report.deletedItems.map {
-            CleanupHistoryDeletedItemDTO(path: $0.path, sizeBytes: $0.sizeBytes)
+            CleanupHistoryDeletedItemDTO(
+                path: $0.path,
+                sizeBytes: $0.sizeBytes,
+                trashedPieces: $0.trashedPieces.isEmpty ? nil : $0.trashedPieces
+            )
         }
 
         let skipped = report.skippedItems.map {

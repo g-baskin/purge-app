@@ -74,6 +74,17 @@ struct ContentView: View {
                 onConfirm: { Task { await store.confirmLargeFileDeletion() } }
             )
         }
+        .sheet(item: $store.appUninstallReview) { review in
+            AppUninstallSheet(
+                review: review,
+                onCancel: { store.dismissAppUninstallReview() },
+                onConfirm: { includeApp, selectedIDs in
+                    Task {
+                        await store.confirmAppUninstall(review, includeApp: includeApp, selectedItemIDs: selectedIDs)
+                    }
+                }
+            )
+        }
         .disabled(store.isManualCleaningInProgress)
         .overlay {
             if isLifecycleActive, let session = store.interactiveSafeCleanupSession {
@@ -313,9 +324,20 @@ struct ContentView: View {
             devToolsTabBody
         case .largeFiles:
             largeFilesTabBody
+        case .apps:
+            appsTabBody
         case .settings:
             settingsTabBody
         }
+    }
+
+    private var appsTabBody: some View {
+        AppUninstallerView()
+            .underDetailPageHeader(includesSubtitle: true)
+            .task {
+                guard !isRunningPreview else { return }
+                await store.scanInstalledAppsIfNeeded()
+            }
     }
 
     @ViewBuilder
@@ -445,6 +467,8 @@ struct ContentView: View {
                 AppScanCleanActions(onScan: { Task { await store.scanAll() } }, scanPhase: store.scanPhase)
             } else if store.selectedTab == .largeFiles {
                 LargeFilesHeaderActions()
+            } else if store.selectedTab == .apps {
+                AppUninstallerHeaderActions()
             }
         }
     }
@@ -457,11 +481,20 @@ struct ContentView: View {
             return pageSubtitle(count: devToolsSubtitleItemCount, bytes: devToolsSubtitleTotalSize)
         case .largeFiles:
             return largeFilesPageSubtitle
+        case .apps:
+            return appsPageSubtitle
         case .settings:
             return nil
         case .about:
             return nil
         }
+    }
+
+    private var appsPageSubtitle: String {
+        let apps = store.installedApps
+        let label = apps.count == 1 ? "app" : "apps"
+        let bytes = apps.reduce(Int64(0)) { $0 + ($1.sizeBytes ?? 0) }
+        return bytes > 0 ? "\(apps.count) \(label) · \(formatBytes(bytes))" : "\(apps.count) \(label)"
     }
 
     private func pageSubtitle(count: Int, bytes: Int64) -> String {

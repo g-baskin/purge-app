@@ -1084,8 +1084,14 @@ private struct CleanFailureRow: View {
                 if failure.reason.showsOpenSettings || failure.reason.showsRetry {
                     HStack(spacing: 10) {
                         if failure.reason.showsOpenSettings {
-                            Button("Open Settings", action: onOpenSettings)
-                                .buttonStyle(CleanFailureActionButtonStyle())
+                            Button("Open Settings") {
+                                if failure.reason == .needsAppManagement {
+                                    openAppManagementSettings()
+                                } else {
+                                    onOpenSettings()
+                                }
+                            }
+                            .buttonStyle(CleanFailureActionButtonStyle())
                         }
                         if failure.reason.showsRetry {
                             Button {

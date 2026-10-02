@@ -5,12 +5,22 @@ enum CleanupTrigger: String, Codable, Hashable {
     case scheduled
 }
 
+/// One filesystem item that was moved to the Trash, and where it landed.
+/// A history row usually has one piece; a "contents only" clean has one per child.
+nonisolated struct TrashedPiece: Codable, Hashable, Sendable {
+    let originalPath: String
+    let trashedPath: String
+}
+
 struct CleanupHistoryDeletedItemDTO: Codable, Hashable, Identifiable {
     var id: String { path }
 
     let path: String
     /// Bytes recorded before deletion.
     let sizeBytes: Int64
+    /// Where each piece went in the Trash. `nil` for entries written before
+    /// Put Back existed and for items removed outright (simulators): not restorable.
+    var trashedPieces: [TrashedPiece]? = nil
 }
 
 struct CleanupHistorySkippedItemDTO: Codable, Hashable, Identifiable {

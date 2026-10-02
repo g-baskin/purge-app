@@ -8,13 +8,22 @@ nonisolated struct DeletedItem: Identifiable {
     let displayName: String?
     /// `false` for items removed directly (e.g. simulators via `simctl delete`).
     let movedToTrash: Bool
+    /// Where each moved piece landed in the Trash, for Put Back. Empty when unknown.
+    let trashedPieces: [TrashedPiece]
 
-    init(path: String, sizeBytes: Int64, displayName: String? = nil, movedToTrash: Bool = true) {
+    init(
+        path: String,
+        sizeBytes: Int64,
+        displayName: String? = nil,
+        movedToTrash: Bool = true,
+        trashedPieces: [TrashedPiece] = []
+    ) {
         self.id = UUID()
         self.path = path
         self.sizeBytes = sizeBytes
         self.displayName = displayName
         self.movedToTrash = movedToTrash
+        self.trashedPieces = trashedPieces
     }
 }
 
@@ -125,7 +134,7 @@ nonisolated final class FileDeleter: Sendable {
                 let size = pathToExpectedSizeBytes[standardizedPath] ?? FolderSizing.directoryByteSize(at: url)
 
                 if DeletionSafetyPolicy.shouldDeleteContentsOnly(url) {
-                    var didDeleteAnyContent = false
+                    var pieces: [TrashedPiece] = []
 
                     if let contents = try? FileManager.default.contentsOfDirectory(
                         at: url,
@@ -135,8 +144,9 @@ nonisolated final class FileDeleter: Sendable {
                         for contentURL in contents {
                             guard DeletionSafetyPolicy.isOfferedForCleanup(contentURL) else { continue }
                             do {
-                                try FileManager.default.trashItem(at: contentURL, resultingItemURL: nil)
-                                didDeleteAnyContent = true
+                                if let piece = try Self.moveToTrash(contentURL) {
+                                    pieces.append(piece)
+                                }
                             } catch {
                                 recordDeletionFailure(
                                     path: contentURL.path,
@@ -149,12 +159,13 @@ nonisolated final class FileDeleter: Sendable {
                         }
                     }
 
-                    if didDeleteAnyContent {
+                    if !pieces.isEmpty {
                         bytesMovedToTrash += size
                         deletedItems.append(DeletedItem(
                             path: url.path,
                             sizeBytes: size,
-                            displayName: friendlyTitle
+                            displayName: friendlyTitle,
+                            trashedPieces: pieces
                         ))
                         onProgress?(.itemDeleted(sizeBytes: size))
                     }
@@ -180,9 +191,14 @@ nonisolated final class FileDeleter: Sendable {
                     }
                 } else {
                     do {
-                        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                        let piece = try Self.moveToTrash(url)
                         bytesMovedToTrash += size
-                        deletedItems.append(DeletedItem(path: url.path, sizeBytes: size, displayName: friendlyTitle))
+                        deletedItems.append(DeletedItem(
+                            path: url.path,
+                            sizeBytes: size,
+                            displayName: friendlyTitle,
+                            trashedPieces: piece.map { [$0] } ?? []
+                        ))
                         onProgress?(.itemDeleted(sizeBytes: size))
                     } catch {
                         recordDeletionFailure(
@@ -259,9 +275,14 @@ nonisolated final class FileDeleter: Sendable {
             onProgress?(.itemStarted(name: friendlyTitle ?? url.lastPathComponent))
             let size = pathToExpectedSizeBytes[standardizedPath] ?? FolderSizing.singleFileSize(at: url)
             do {
-                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                let piece = try Self.moveToTrash(url)
                 bytesMovedToTrash += size
-                deletedItems.append(DeletedItem(path: url.path, sizeBytes: size, displayName: friendlyTitle))
+                deletedItems.append(DeletedItem(
+                    path: url.path,
+                    sizeBytes: size,
+                    displayName: friendlyTitle,
+                    trashedPieces: piece.map { [$0] } ?? []
+                ))
                 onProgress?(.itemDeleted(sizeBytes: size))
             } catch {
                 recordDeletionFailure(
@@ -286,6 +307,158 @@ nonisolated final class FileDeleter: Sendable {
             timestamp: Date()
         )
         return report
+    }
+
+    /// Uninstalls an app: moves its bundle, then the chosen files that belong to it,
+    /// to the Trash. Pass `includeAppBundle: false` to remove only its files.
+    ///
+    /// Every path is re-checked against `policy` here, right before it moves, so a
+    /// change since the review (a replaced bundle, a new symlink) is refused. If the
+    /// app itself can't be moved, its files are kept too: removing an installed
+    /// app's data would quietly reset it instead of uninstalling it.
+    @concurrent func uninstallApp(
+        _ app: InstalledApp,
+        includeAppBundle: Bool,
+        relatedItems: [AppRelatedItem],
+        context: AppCatalogContext,
+        policy: AppUninstallPolicy = .live(),
+        onProgress: (@Sendable (DeletionProgressEvent) -> Void)? = nil
+    ) async -> DeletionReport {
+        var bytesMovedToTrash: Int64 = 0
+        var deletedItems: [DeletedItem] = []
+        var failedItems: [FailedDeletionItem] = []
+        var skippedItems: [SkippedDeletionItem] = []
+        let volumeURL = FileManager.default.homeDirectoryForCurrentUser
+        let capacityBefore = VolumeCapacityReader.read(for: volumeURL)
+        var keepRelatedItems = false
+
+        if includeAppBundle {
+            let url = app.bundleURL
+            if let refusal = policy.refusalForAppBundle(url, expectedBundleID: app.bundleID) {
+                keepRelatedItems = true
+                NSLog("Purge: refused to uninstall %@ — %@", url.path, refusal.explanation)
+                skippedItems.append(SkippedDeletionItem(
+                    path: url.path,
+                    displayName: app.displayName,
+                    reason: refusal.explanation,
+                    isUserVisible: true
+                ))
+            } else {
+                onProgress?(.itemStarted(name: app.displayName))
+                let size = app.sizeBytes ?? FolderSizing.directoryByteSize(at: url)
+                do {
+                    let piece = try Self.moveToTrash(url)
+                    bytesMovedToTrash += size
+                    deletedItems.append(DeletedItem(
+                        path: url.path,
+                        sizeBytes: size,
+                        displayName: app.displayName,
+                        trashedPieces: piece.map { [$0] } ?? []
+                    ))
+                    onProgress?(.itemDeleted(sizeBytes: size))
+                } catch {
+                    keepRelatedItems = true
+                    NSLog("Purge: failed to uninstall %@ — %@", url.path, error.localizedDescription)
+                    if Self.isPermissionError(error) {
+                        // The bundle passed the write-access check, so this is macOS's
+                        // App Management protection, not file permissions.
+                        failedItems.append(FailedDeletionItem(
+                            path: url.path,
+                            displayName: app.displayName,
+                            reason: .needsAppManagement,
+                            sizeBytes: size
+                        ))
+                    } else {
+                        recordDeletionFailure(
+                            path: url.path,
+                            error: error,
+                            displayName: app.displayName,
+                            sizeBytes: size,
+                            failedItems: &failedItems
+                        )
+                    }
+                }
+            }
+        }
+
+        for item in relatedItems {
+            let name = "\(app.displayName) \(item.kind.label.lowercased())"
+            guard !keepRelatedItems else {
+                // Not listed one by one: the app's own row already says its files were kept.
+                skippedItems.append(SkippedDeletionItem(
+                    path: item.url.path,
+                    displayName: name,
+                    reason: "Kept because the app itself wasn't removed",
+                    isUserVisible: false
+                ))
+                continue
+            }
+            guard policy.isEligibleRelatedItem(item.url, app: app, context: context) else {
+                NSLog("Purge: refused to remove %@ while uninstalling %@", item.url.path, app.bundleID)
+                skippedItems.append(SkippedDeletionItem(
+                    path: item.url.path,
+                    displayName: name,
+                    reason: "This file was skipped for safety",
+                    isUserVisible: true
+                ))
+                continue
+            }
+
+            onProgress?(.itemStarted(name: name))
+            do {
+                let piece = try Self.moveToTrash(item.url)
+                bytesMovedToTrash += item.sizeBytes
+                deletedItems.append(DeletedItem(
+                    path: item.url.path,
+                    sizeBytes: item.sizeBytes,
+                    displayName: name,
+                    trashedPieces: piece.map { [$0] } ?? []
+                ))
+                onProgress?(.itemDeleted(sizeBytes: item.sizeBytes))
+            } catch {
+                recordDeletionFailure(
+                    path: item.url.path,
+                    error: error,
+                    displayName: name,
+                    sizeBytes: item.sizeBytes,
+                    failedItems: &failedItems
+                )
+            }
+        }
+
+        return DeletionReport(
+            bytesMovedToTrash: bytesMovedToTrash,
+            bytesRemovedDirectly: 0,
+            deletedItems: deletedItems,
+            failedItems: failedItems,
+            skippedItems: skippedItems,
+            capacityBefore: capacityBefore,
+            capacityAfter: VolumeCapacityReader.read(for: volumeURL),
+            timestamp: Date()
+        )
+    }
+
+    /// Permission denials, including ones wrapped in a Cocoa error.
+    private static func isPermissionError(_ error: Error) -> Bool {
+        var current: NSError? = error as NSError
+        while let ns = current {
+            if ns.domain == NSCocoaErrorDomain, ns.code == NSFileWriteNoPermissionError { return true }
+            if ns.domain == NSPOSIXErrorDomain, ns.code == Int(EPERM) || ns.code == Int(EACCES) { return true }
+            current = ns.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return false
+    }
+
+    /// Moves `url` to the Trash and returns where it landed, so it can be put back.
+    /// `nil` when the system did not report a location (the move still happened).
+    private static func moveToTrash(_ url: URL) throws -> TrashedPiece? {
+        var resulting: NSURL?
+        try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
+        guard let landed = resulting as URL? else { return nil }
+        return TrashedPiece(
+            originalPath: url.standardizedFileURL.path,
+            trashedPath: landed.standardizedFileURL.path
+        )
     }
 
     /// Returns the simulator UDID when `url` is exactly `…/CoreSimulator/Devices/{UUID}`.
