@@ -118,6 +118,7 @@ nonisolated final class FileDeleter: Sendable {
         pathToExpectedSizeBytes: [String: Int64] = [:],
         onProgress: (@Sendable (DeletionProgressEvent) -> Void)? = nil
     ) async throws -> DeletionReport {
+        defer { Self.forgetSavedSizes(around: urls) }
         var bytesMovedToTrash: Int64 = 0
         var bytesRemovedDirectly: Int64 = 0
         var deletedItems: [DeletedItem] = []
@@ -281,6 +282,7 @@ nonisolated final class FileDeleter: Sendable {
         privilegedEligiblePaths: Set<String> = [],
         onProgress: (@Sendable (DeletionProgressEvent) -> Void)? = nil
     ) async throws -> DeletionReport {
+        defer { Self.forgetSavedSizes(around: urls) }
         var bytesMovedToTrash: Int64 = 0
         var deletedItems: [DeletedItem] = []
         var failedItems: [FailedDeletionItem] = []
@@ -360,6 +362,13 @@ nonisolated final class FileDeleter: Sendable {
             ownershipWarningPaths: ownershipWarningPaths
         )
         return report
+    }
+
+    /// The next scan must measure what this run touched, and the Trash it filled,
+    /// right away: the journal may not have recorded the changes yet. Covers items
+    /// that failed too, since a failure can still have moved part of a folder.
+    private static func forgetSavedSizes(around urls: [URL]) {
+        FolderSizeCache.shared.invalidate(urls + TrashStore.trashDirectories())
     }
 
     /// Moves `url` to the Trash and returns where it landed, so it can be put back.

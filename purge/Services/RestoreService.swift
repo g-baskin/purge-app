@@ -103,6 +103,8 @@ nonisolated struct RestoreService: Sendable {
                 withIntermediateDirectories: true
             )
             try fm.moveItem(at: source, to: destination)
+            // The folders it went back into, and the Trash it left, changed size.
+            FolderSizeCache.shared.invalidate([destination, source.deletingLastPathComponent()])
             return .restored
         } catch {
             NSLog("Purge: failed to restore %@ — %@", piece.originalPath, error.localizedDescription)

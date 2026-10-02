@@ -37,7 +37,13 @@ enum FolderSizing {
         return acquired
     }
 
+    /// Sizes for up to `duChunkSize` folders in one `du`. Folders unchanged since
+    /// they were last measured come from ``FolderSizeCache`` without a walk.
     nonisolated static func directorySizesForChunk(_ chunk: [URL]) -> [String: Int64] {
+        FolderSizeCache.shared.sizes(for: chunk) { measureChunk($0) }
+    }
+
+    private nonisolated static func measureChunk(_ chunk: [URL]) -> [String: Int64] {
         guard !chunk.isEmpty else { return [:] }
         guard acquireDuPermit() else { return [:] }
         defer { duChunkLimiter.signal() }
@@ -80,7 +86,13 @@ enum FolderSizing {
         return result
     }
 
+    /// Sizes for any number of folders. Folders unchanged since they were last
+    /// measured come from ``FolderSizeCache`` without a walk.
     nonisolated static func directorySizes(at urls: [URL]) -> [String: Int64] {
+        FolderSizeCache.shared.sizes(for: urls) { measure($0) }
+    }
+
+    private nonisolated static func measure(_ urls: [URL]) -> [String: Int64] {
         guard !urls.isEmpty else { return [:] }
 
         var chunks: [[URL]] = []
@@ -97,7 +109,7 @@ enum FolderSizing {
         // were enough. So a single chunk runs right here, and several run on threads
         // started just for them, which never wait on the shared pool.
         if chunks.count == 1 {
-            return directorySizesForChunk(chunks[0])
+            return measureChunk(chunks[0])
         }
 
         var result: [String: Int64] = [:]
