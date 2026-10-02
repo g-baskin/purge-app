@@ -8,13 +8,23 @@ nonisolated struct DeletedItem: Identifiable {
     let displayName: String?
     /// `false` for items removed directly (e.g. simulators via `simctl delete`).
     let movedToTrash: Bool
+    /// Where each moved piece landed in the Trash, for Put Back. Empty when unknown,
+    /// including items the privileged helper moved (it reports only what moved).
+    let trashedPieces: [TrashedPiece]
 
-    init(path: String, sizeBytes: Int64, displayName: String? = nil, movedToTrash: Bool = true) {
+    init(
+        path: String,
+        sizeBytes: Int64,
+        displayName: String? = nil,
+        movedToTrash: Bool = true,
+        trashedPieces: [TrashedPiece] = []
+    ) {
         self.id = UUID()
         self.path = path
         self.sizeBytes = sizeBytes
         self.displayName = displayName
         self.movedToTrash = movedToTrash
+        self.trashedPieces = trashedPieces
     }
 }
 
@@ -145,6 +155,7 @@ nonisolated final class FileDeleter: Sendable {
 
                 if DeletionSafetyPolicy.shouldDeleteContentsOnly(url) {
                     var didDeleteAnyContent = false
+                    var pieces: [TrashedPiece] = []
 
                     if let contents = try? FileManager.default.contentsOfDirectory(
                         at: url,
@@ -154,8 +165,11 @@ nonisolated final class FileDeleter: Sendable {
                         for contentURL in contents {
                             guard DeletionSafetyPolicy.isOfferedForCleanup(contentURL) else { continue }
                             do {
-                                try FileManager.default.trashItem(at: contentURL, resultingItemURL: nil)
+                                let piece = try Self.moveToTrash(contentURL)
                                 didDeleteAnyContent = true
+                                if let piece {
+                                    pieces.append(piece)
+                                }
                             } catch {
                                 recordDeletionFailure(
                                     path: contentURL.path,
@@ -173,7 +187,8 @@ nonisolated final class FileDeleter: Sendable {
                         deletedItems.append(DeletedItem(
                             path: url.path,
                             sizeBytes: size,
-                            displayName: friendlyTitle
+                            displayName: friendlyTitle,
+                            trashedPieces: pieces
                         ))
                         onProgress?(.itemDeleted(sizeBytes: size))
                     }
@@ -210,9 +225,14 @@ nonisolated final class FileDeleter: Sendable {
                         continue
                     }
                     do {
-                        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                        let piece = try Self.moveToTrash(url)
                         bytesMovedToTrash += size
-                        deletedItems.append(DeletedItem(path: url.path, sizeBytes: size, displayName: friendlyTitle))
+                        deletedItems.append(DeletedItem(
+                            path: url.path,
+                            sizeBytes: size,
+                            displayName: friendlyTitle,
+                            trashedPieces: piece.map { [$0] } ?? []
+                        ))
                         onProgress?(.itemDeleted(sizeBytes: size))
                     } catch {
                         recordDeletionFailure(
@@ -293,9 +313,14 @@ nonisolated final class FileDeleter: Sendable {
             onProgress?(.itemStarted(name: friendlyTitle ?? url.lastPathComponent))
             let size = pathToExpectedSizeBytes[standardizedPath] ?? FolderSizing.singleFileSize(at: url)
             do {
-                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                let piece = try Self.moveToTrash(url)
                 bytesMovedToTrash += size
-                deletedItems.append(DeletedItem(path: url.path, sizeBytes: size, displayName: friendlyTitle))
+                deletedItems.append(DeletedItem(
+                    path: url.path,
+                    sizeBytes: size,
+                    displayName: friendlyTitle,
+                    trashedPieces: piece.map { [$0] } ?? []
+                ))
                 onProgress?(.itemDeleted(sizeBytes: size))
             } catch {
                 recordDeletionFailure(
@@ -335,6 +360,18 @@ nonisolated final class FileDeleter: Sendable {
             ownershipWarningPaths: ownershipWarningPaths
         )
         return report
+    }
+
+    /// Moves `url` to the Trash and returns where it landed, so it can be put back.
+    /// `nil` when the system did not report a location (the move still happened).
+    private static func moveToTrash(_ url: URL) throws -> TrashedPiece? {
+        var resulting: NSURL?
+        try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
+        guard let landed = resulting as URL? else { return nil }
+        return TrashedPiece(
+            originalPath: url.standardizedFileURL.path,
+            trashedPath: landed.standardizedFileURL.path
+        )
     }
 
     /// Escalates only explicit uninstall paths whose ordinary move failed and whose

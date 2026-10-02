@@ -5,6 +5,15 @@ struct CleanupHistoryDetailView: View {
 
     let entry: CleanupHistoryEntry
 
+    private let restoreService = RestoreService()
+    @State private var availability: [String: RestoreAvailability] = [:]
+    @State private var isRestoring = false
+    @State private var restoreMessage: String?
+
+    private var restorableItems: [CleanupHistoryDeletedItemDTO] {
+        entry.deletedItems.filter { availability[$0.id] == .restorable }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             sheetHeader
@@ -12,6 +21,12 @@ struct CleanupHistoryDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     summarySection
+                    if let restoreMessage {
+                        Text(restoreMessage)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .accessibilityAddTraits(.updatesFrequently)
+                    }
                     movedToTrashSection
                     if !entry.skippedItems.isEmpty {
                         skippedSection
@@ -26,6 +41,28 @@ struct CleanupHistoryDetailView: View {
         }
         .background(AppColors.surfaceBase)
         .frame(minWidth: 480, minHeight: 320, maxHeight: 560)
+        .task { refreshAvailability() }
+    }
+
+    private func refreshAvailability() {
+        var result: [String: RestoreAvailability] = [:]
+        for item in entry.deletedItems {
+            result[item.id] = restoreService.availability(of: item)
+        }
+        availability = result
+    }
+
+    private func putBack(_ items: [CleanupHistoryDeletedItemDTO]) {
+        guard !items.isEmpty, !isRestoring else { return }
+        isRestoring = true
+        let service = restoreService
+        Task {
+            // File moves can be slow for big folders; keep them off the main thread.
+            let report = await Task.detached { service.restore(items) }.value
+            restoreMessage = report.summary
+            isRestoring = false
+            refreshAvailability()
+        }
     }
 
     private var sheetHeader: some View {
@@ -34,6 +71,18 @@ struct CleanupHistoryDetailView: View {
                 .font(AppStyle.Typography.headline)
 
             Spacer(minLength: 12)
+
+            if isRestoring {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Putting items back")
+            }
+
+            Button("Put Back All") {
+                putBack(restorableItems)
+            }
+            .disabled(restorableItems.isEmpty || isRestoring)
+            .help("Move everything from this clean that is still in the Trash back where it was")
 
             Button("Done") {
                 dismiss()
@@ -117,7 +166,33 @@ struct CleanupHistoryDetailView: View {
                     .font(AppStyle.Typography.rowTitle)
                     .foregroundStyle(AppColors.textSecondary)
             }
+
+            restoreControl(for: item)
         }
+    }
+
+    @ViewBuilder
+    private func restoreControl(for item: CleanupHistoryDeletedItemDTO) -> some View {
+        switch availability[item.id] {
+        case .restorable:
+            Button("Put Back") { putBack([item]) }
+                .controlSize(.small)
+                .disabled(isRestoring)
+                .accessibilityLabel("Put back \(URL(fileURLWithPath: item.path).lastPathComponent)")
+        case .conflict:
+            restoreNote("Already replaced", help: "Something new is at the original location, so Purge won't overwrite it")
+        case .noLongerInTrash:
+            restoreNote("Not in Trash", help: "Already put back, or the Trash was emptied")
+        case .notRestorable, .none:
+            EmptyView()
+        }
+    }
+
+    private func restoreNote(_ text: String, help: String) -> some View {
+        Text(text)
+            .font(.system(size: 11))
+            .foregroundStyle(.tertiary)
+            .help(help)
     }
 
     private func skippedItemRow(_ item: CleanupHistorySkippedItemDTO) -> some View {
