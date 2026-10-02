@@ -90,6 +90,16 @@ enum FolderSizing {
             index += duChunkSize
         }
 
+        // Callers block their thread until every chunk is measured, and scans call
+        // this from many threads at once. If the chunks ran on GCD's shared pool,
+        // enough blocked callers could leave no thread to run them on, and every
+        // call would hang for good. Seen on an 8-core Mac: eight concurrent callers
+        // were enough. So a single chunk runs right here, and several run on threads
+        // started just for them, which never wait on the shared pool.
+        if chunks.count == 1 {
+            return directorySizesForChunk(chunks[0])
+        }
+
         var result: [String: Int64] = [:]
         let lock = NSLock()
         let group = DispatchGroup()
@@ -106,7 +116,8 @@ enum FolderSizing {
             }
 
             group.enter()
-            DispatchQueue.global(qos: .utility).async {
+            // At most `maxConcurrentDuChunks` of these exist at once: each holds a permit.
+            let worker = Thread {
                 defer {
                     duChunkLimiter.signal()
                     group.leave()
@@ -118,6 +129,8 @@ enum FolderSizing {
                 }
                 lock.unlock()
             }
+            worker.qualityOfService = .utility
+            worker.start()
         }
 
         group.wait()

@@ -191,6 +191,53 @@ struct FolderSizingConcurrencyTests {
         }
     }
 
+    /// Trash sizing, Settings, uninstall leftovers and deletion each measure a
+    /// folder or two at a time, often all at once. Run more of those calls together
+    /// than this Mac has cores: when the work went to a second thread while the
+    /// caller blocked waiting for it, every call hung forever once the callers held
+    /// all the worker threads.
+    @Test("Many concurrent single-folder measurements all finish", .timeLimit(.minutes(1)))
+    func manyConcurrentSmallMeasurementsFinish() async throws {
+        let callers = ProcessInfo.processInfo.activeProcessorCount * 2
+        let (root, paths) = try makeTree(directories: callers, bytesEach: 4 * 1024)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let measured = await withTaskGroup(of: Int64?.self, returning: [Int64?].self) { group in
+            for path in paths {
+                group.addTask { FolderSizing.directoryByteSizeIfMeasurable(at: path) }
+            }
+            return await group.reduce(into: []) { $0.append($1) }
+        }
+
+        #expect(measured.count == callers)
+        #expect(measured.allSatisfy { ($0 ?? 0) > 0 }, "some folders went unmeasured: \(measured)")
+    }
+
+    /// The same pile-up for calls big enough to need more than one chunk, which
+    /// run their chunks side by side while the caller waits.
+    @Test("Many concurrent multi-chunk measurements all finish", .timeLimit(.minutes(1)))
+    func manyConcurrentMultiChunkMeasurementsFinish() async throws {
+        let callers = ProcessInfo.processInfo.activeProcessorCount * 2
+        let perCaller = FolderSizing.duChunkSize + 1 // two chunks each
+        var trees: [(root: URL, paths: [URL])] = []
+        for _ in 0..<callers {
+            trees.append(try makeTree(directories: perCaller, bytesEach: 1024))
+        }
+        defer {
+            for tree in trees { try? FileManager.default.removeItem(at: tree.root) }
+        }
+
+        let counts = await withTaskGroup(of: Int.self, returning: [Int].self) { group in
+            for tree in trees {
+                group.addTask { FolderSizing.directorySizes(at: tree.paths).count }
+            }
+            return await group.reduce(into: []) { $0.append($1) }
+        }
+
+        #expect(counts.count == callers)
+        #expect(counts.allSatisfy { $0 == perCaller }, "incomplete results: \(counts)")
+    }
+
     @Test("Cancelled chunk sizing calls do not leak limiter permits")
     func chunkCancellationDoesNotLeakLimiterPermits() async throws {
         let (root, paths) = try makeTree(directories: FolderSizing.duChunkSize, bytesEach: 4 * 1024)
