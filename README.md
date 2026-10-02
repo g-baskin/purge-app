@@ -280,6 +280,19 @@ xcodebuild -project purge.xcodeproj -scheme purge -configuration Release build
 
 The built `Purge.app` is written under Xcode's DerivedData folder (the build output ends with its path).
 
+### Keep permissions between builds
+
+macOS remembers Full Disk Access and background-item approvals by an app's signature. Without a signing certificate, every build gets a new signature, so macOS asks again after each build. To stop that, set up a private signing certificate once, then build with the script:
+
+```bash
+scripts/dev-signing-setup.sh   # once; macOS asks for your password to trust the certificate
+scripts/dev-run.sh             # builds, signs, and opens Purge
+```
+
+Grant Full Disk Access one more time; later builds keep it. Use only this copy of Purge, because macOS remembers permissions for one copy at a time. Local builds also get a very high build number, so the built-in updater never replaces your build with an official release. `scripts/dev-signing-setup.sh --remove` undoes the setup.
+
+The certificate lives in a keychain that builds unlock without asking, so other programs running as you could use it too. Builds signed this way also run without Apple's hardened runtime, which needs a certificate from an Apple developer team. Only set this up on your own Mac.
+
 ### Optional: regenerate brand icons
 
 The app cache icons are generated from [simple-icons](https://simpleicons.org). To rebuild them:
@@ -296,6 +309,8 @@ xcodebuild test -project purge.xcodeproj -scheme purge -destination 'platform=ma
 ```
 
 The signing flags matter: without a development certificate on the machine, the test build fails before a single test runs. Continuous integration builds the same way.
+
+The tests open Purge, so with the signing setup above, run them with `scripts/dev-test.sh` instead. It signs the test build the same way, so test runs don't ask for permissions again.
 
 ---
 
