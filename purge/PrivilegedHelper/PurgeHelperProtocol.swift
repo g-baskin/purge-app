@@ -28,15 +28,73 @@ enum PurgeHelperConstants {
 
     /// What the helper demands of whoever connects: the genuine, Apple-notarized,
     /// same-team Purge app. Applied with `NSXPCConnection.setCodeSigningRequirement`.
-    static let clientRequirement =
-        "identifier \"io.getpurge.app\" and anchor apple generic and " +
-        "certificate leaf[subject.OU] = \"\(teamIdentifier)\""
+    /// A local build may also be accepted; see ``localSigningCertificateKey``.
+    static var clientRequirement: String {
+        requirement(identifier: "io.getpurge.app", localCertificateSHA1: bundledLocalCertificateSHA1())
+    }
 
     /// What the app demands of the helper it dials, so a planted binary answering on
     /// the same Mach service cannot pose as the helper.
-    static let helperRequirement =
-        "identifier \"\(machServiceName)\" and anchor apple generic and " +
-        "certificate leaf[subject.OU] = \"\(teamIdentifier)\""
+    static var helperRequirement: String {
+        requirement(identifier: machServiceName, localCertificateSHA1: bundledLocalCertificateSHA1())
+    }
+
+    /// Info.plist key holding the SHA-1 fingerprint of the private certificate a
+    /// local build is signed with (`scripts/dev-sign.sh` writes it). With it, both
+    /// ends also accept code signed by that one certificate, so a build signed
+    /// without an Apple developer account can use the helper. Release builds never
+    /// carry the key and keep the team-only requirement.
+    ///
+    /// The key is read from the reader's own bundle, which its signature seals: a
+    /// changed value breaks the signature, and macOS won't run it. The helper reads
+    /// the app bundle it was registered from (two levels above its executable), so a
+    /// file placed elsewhere can't change what it trusts.
+    static let localSigningCertificateKey = "PurgeLocalSigningCertificateSHA1"
+
+    /// The requirement for `identifier`: the official team always, plus one local
+    /// certificate when a valid fingerprint is given.
+    static func requirement(identifier: String, localCertificateSHA1: String?) -> String {
+        let official =
+            "identifier \"\(identifier)\" and anchor apple generic and " +
+            "certificate leaf[subject.OU] = \"\(teamIdentifier)\""
+        guard let fingerprint = localCertificateSHA1.flatMap(validatedFingerprint) else {
+            return official
+        }
+        return "(\(official)) or (identifier \"\(identifier)\" and certificate leaf = H\"\(fingerprint)\")"
+    }
+
+    /// Exactly 40 hex digits, lowercased; anything else is ignored, so a bad value
+    /// can never widen the requirement or break its syntax.
+    static func validatedFingerprint(_ value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespaces).lowercased()
+        guard trimmed.utf8.count == 40,
+              trimmed.utf8.allSatisfy({ (0x30...0x39).contains($0) || (0x61...0x66).contains($0) })
+        else { return nil }
+        return trimmed
+    }
+
+    /// The local certificate fingerprint from Purge.app's Info.plist, for both the
+    /// app and the helper inside it. `nil` in releases.
+    static func bundledLocalCertificateSHA1() -> String? {
+        let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
+        // The app's executable and the helper both sit in Purge.app/Contents/MacOS.
+        let infoPlist = executable.resolvingSymlinksInPath()
+            .deletingLastPathComponent() // MacOS
+            .deletingLastPathComponent() // Contents
+            .appendingPathComponent("Info.plist")
+        return localCertificateSHA1(infoPlist: infoPlist)
+    }
+
+    /// The fingerprint in one Purge.app Info.plist, or `nil` when it has none (every
+    /// release), belongs to another app, or holds anything but a valid fingerprint.
+    static func localCertificateSHA1(infoPlist: URL) -> String? {
+        guard let data = try? Data(contentsOf: infoPlist),
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              plist["CFBundleIdentifier"] as? String == "io.getpurge.app",
+              let value = plist[localSigningCertificateKey] as? String
+        else { return nil }
+        return validatedFingerprint(value)
+    }
 
     /// Directories whose immediate children the uninstaller may offer as leftovers.
     /// Keep this in the shared file so the root helper enforces the same boundary as

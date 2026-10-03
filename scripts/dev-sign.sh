@@ -3,7 +3,10 @@
 # Finishes a local build of Purge so macOS keeps its permissions:
 #   1. Gives it a very high build number, so the built-in updater never swaps it
 #      for the original author's release, which has a different signature.
-#   2. Signs it with your private Purge certificate (see dev-signing-setup.sh),
+#   2. Records the certificate's fingerprint in the app, so the uninstall helper
+#      and the app accept each other (they otherwise only trust the original
+#      developer's signature).
+#   3. Signs it with your private Purge certificate (see dev-signing-setup.sh),
 #      so macOS sees every build as the same app.
 # Used by dev-run.sh and dev-test.sh.
 #
@@ -53,6 +56,8 @@ if [[ ! -f "$APP/Contents/Info.plist" ]]; then
 fi
 
 plutil -replace CFBundleVersion -string "$LOCAL_BUILD_NUMBER" "$APP/Contents/Info.plist"
+# Read by PurgeHelperConstants. Sealed by the signature below, like the rest of the plist.
+plutil -replace PurgeLocalSigningCertificateSHA1 -string "$fingerprint" "$APP/Contents/Info.plist"
 
 # codesign only finds certificates in keychains on your keychain list, so this
 # one goes on the list just while signing, then the list is put back as it was.

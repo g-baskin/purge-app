@@ -40,7 +40,10 @@ enum AppBootstrapper {
 
         // Check the installed helper once per app launch. Keeping this here avoids
         // starting registration work just because a view happened to read the
-        // preference store during previews or tests.
+        // preference store during previews or tests. Skipped in the test host: it is a
+        // second copy of Purge.app, and re-registering the root helper from it would
+        // move the approved helper over to the test copy.
+        guard !TestHost.isActive() else { return }
         let helperPreferences = PrivilegedHelperPreferenceStore.shared
         Task {
             await PrivilegedHelperManager.shared.reconcileVersion()
