@@ -1,0 +1,25 @@
+# CODEOWNERS
+#
+# Rules:
+# - Owners MUST have write access to this repository (or be a visible team
+#   with write access).
+# - Last matching pattern wins, same as .gitignore, EXCEPT: \# escaping,
+#   ! negation, and [ ] character ranges do NOT work here even though they
+#   look like gitignore syntax.
+# - Multiple owners for one pattern must be listed on the same line, or only
+#   the last-listed owner is applied.
+# - Enable "Require review from Code Owners" on branch protection or a
+#   ruleset for this file to actually gate merges.
+
+# Default owner for everything not matched below.
+*                        @g-baskin
+
+# Lock down changes to repository governance and CI/CD itself.
+/.github/                @g-baskin
+/.github/CODEOWNERS      @g-baskin
+/.github/workflows/      @g-baskin
+
+# The root-privileged helper, its trust rules, and release signing.
+/PurgeHelper/            @g-baskin
+/purge/PrivilegedHelper/ @g-baskin
+/scripts/                @g-baskin

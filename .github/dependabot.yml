@@ -1,0 +1,36 @@
+# Dependabot version updates. GitHub-native, no external app to install.
+#
+# Not covered: the Sparkle framework (the app's updater), added through the
+# Xcode project's Swift Package Manager settings. Dependabot's Swift support
+# needs a Package.swift manifest, which this Xcode project doesn't have, so
+# check Sparkle's releases by hand.
+
+version: 2
+updates:
+  # Build tools for the brand icons (sharp, simple-icons). All dev-only;
+  # nothing here ships inside the app.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      # Bundle low-risk bumps into one PR instead of one per package.
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+
+  # Keep the GitHub Actions in .github/workflows/ current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"

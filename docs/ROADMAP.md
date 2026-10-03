@@ -1,5 +1,7 @@
 # Purge Roadmap: Next Features
 
+> **Note (3 October 2026):** The open items below now live as backlog PRDs in [`library/requirements/backlog/`](../library/requirements/backlog/), which are the source of truth from here on: item 3 -> PRD-004, item 4 (remainder) -> PRD-005, item 5 -> PRD-006, item 7 -> PRD-007, item 8 -> PRD-008, item 9 -> PRD-009. Finished fork work is documented in [`library/requirements/completed/`](../library/requirements/completed/) (Put Back is PRD-001). This file is kept as the original proposal.
+
 Status: proposal, not yet scheduled. Ordered by suggested build order (value vs. effort, and how much existing code each one reuses).
 
 **Progress (2 October 2026, after updating to the original project's 1.7.0 code):**

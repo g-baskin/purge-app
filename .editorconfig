@@ -1,0 +1,30 @@
+root = true
+
+# Matches the existing code: Swift uses 4-space indentation, scripts and
+# web/config files use 2. Applies to new edits only; nothing is reformatted.
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.swift]
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+
+# Xcode manages these files; leave its formatting alone.
+[*.{pbxproj,xcscheme,xcworkspacedata,plist,entitlements,strings,xcstrings}]
+indent_style = unset
+indent_size = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
