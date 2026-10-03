@@ -312,6 +312,22 @@ The signing flags matter: without a development certificate on the machine, the 
 
 The tests open Purge, so with the signing setup above, run them with `scripts/dev-test.sh` instead. It signs the test build the same way, so test runs don't ask for permissions again.
 
+### Updating from the original project
+
+This copy lives at [g-baskin/purge-app](https://github.com/g-baskin/purge-app), a fork of [jithin-sabu/purge-app](https://github.com/jithin-sabu/purge-app). Its `main` holds your changes. The original project's code is kept separately on the `upstream-main` branch, so its updates never land on `main` by themselves.
+
+To bring in the original project's latest changes:
+
+```bash
+git fetch upstream
+git switch upstream-main && git merge --ff-only upstream/main && git push origin upstream-main
+git switch main && git merge upstream-main
+```
+
+Resolve any conflicts the merge reports, run the tests, then `git push`. Pushing to the original project is switched off on this machine: `upstream` can only fetch.
+
+On another Mac, `git clone https://github.com/g-baskin/purge-app.git`, then add the original with `git remote add upstream https://github.com/jithin-sabu/purge-app.git` before updating as above.
+
 ---
 
 ## Requirements
