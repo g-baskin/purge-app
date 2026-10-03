@@ -23,8 +23,8 @@ struct CleanupHistoryDetailView: View {
                     summarySection
                     if let restoreMessage {
                         Text(restoreMessage)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .font(AppStyle.Typography.callout)
+                            .foregroundStyle(AppColors.textSecondary)
                             .accessibilityAddTraits(.updatesFrequently)
                     }
                     movedToTrashSection
@@ -190,8 +190,8 @@ struct CleanupHistoryDetailView: View {
 
     private func restoreNote(_ text: String, help: String) -> some View {
         Text(text)
-            .font(.system(size: 11))
-            .foregroundStyle(.tertiary)
+            .font(AppStyle.Typography.metadata)
+            .foregroundStyle(AppColors.textTertiary)
             .help(help)
     }
 
