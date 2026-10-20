@@ -538,13 +538,25 @@ struct TelegramMediaCacheTests {
     }
 
     @Test
-    func discoverySurfacesOnlyPostboxMediaThatPassesTheGuard() {
-        // Whatever discovery surfaces on this machine (possibly nothing) must
-        // terminate at `postbox/media` and pass the results-boundary guard.
-        for surfaced in CacheDiscoveryPaths.telegramMediaCacheURLs(home: TestPaths.home) {
+    func discoverySurfacesOnlyPostboxMediaThatPassesTheGuard() throws {
+        // Never enumerate the user's protected Telegram container during tests.
+        let fm = FileManager.default
+        let home = fm.temporaryDirectory.appendingPathComponent("PurgeTelegramDiscovery-\(UUID().uuidString)", isDirectory: true)
+        defer { try? fm.removeItem(at: home) }
+        let root = home.appendingPathComponent(CacheDiscoveryPaths.telegramGroupContainerRelative, isDirectory: true)
+        let mediaPaths = ["stable/account-fixture/postbox/media", "account-direct/postbox/media"]
+        for path in mediaPaths + ["stable/account-db/postbox/db", "stable/settings"] {
+            try fm.createDirectory(at: root.appendingPathComponent(path), withIntermediateDirectories: true)
+        }
+        let found = CacheDiscoveryPaths.telegramMediaCacheURLs(home: home)
+        #expect(Set(found.map { $0.url.path }) == Set(mediaPaths.map { root.appendingPathComponent($0).path }))
+        for surfaced in found {
             #expect(surfaced.url.path.hasSuffix("/postbox/media"))
             #expect(surfaced.key == "Telegram Media Cache")
-            #expect(DeletionSafetyPolicy.isOfferedForCleanup(surfaced.url))
+            // The policy is rooted at the real home; evaluate the corresponding
+            // path shape without enumerating or reading the real container.
+            let relative = String(surfaced.url.path.dropFirst(home.path.count + 1))
+            #expect(DeletionSafetyPolicy.isOfferedForCleanup(TestPaths.home.appendingPathComponent(relative)))
         }
     }
 

@@ -21,6 +21,8 @@ final class PurgeUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
 
     override init() {
         super.init()
+        // This fork must never be replaced by an upstream binary with another identity.
+        guard PersonalCopyLock.allowsUpstreamUpdates else { return }
         controller = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: self,
@@ -30,12 +32,14 @@ final class PurgeUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     }
 
     func setAutomaticallyChecksForUpdates(_ enabled: Bool) {
+        guard PersonalCopyLock.allowsUpstreamUpdates, let controller else { return }
         controller.updater.automaticallyChecksForUpdates = enabled
         automaticallyChecksForUpdates = enabled
     }
 
     func checkForUpdates() {
-        guard controller.updater.canCheckForUpdates else { return }
+        guard PersonalCopyLock.allowsUpstreamUpdates, let controller,
+              controller.updater.canCheckForUpdates else { return }
         controller.updater.checkForUpdates()
     }
 

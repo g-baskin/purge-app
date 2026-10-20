@@ -71,7 +71,7 @@ struct OverviewView: View {
             // Right end, above the free part of the bar.
             Text("\(formatStorageBytes(breakdown.freeBytes)) free")
                 .font(AppStyle.Typography.rowTitle)
-                .foregroundStyle(AppColors.textSecondary)
+                .foregroundStyle(AppColors.storageFreeText)
                 .overviewNumberTransition(breakdown.freeBytes, reduceMotion: reduceMotion)
         }
         .accessibilityElement(children: .combine)
@@ -139,7 +139,8 @@ struct OverviewView: View {
                 detail: "Available for new files",
                 bytes: breakdown.freeBytes,
                 share: breakdown.share(of: breakdown.freeBytes),
-                linkedState: linkedRowState(OverviewDiskBar.freeID)
+                linkedState: linkedRowState(OverviewDiskBar.freeID),
+                valueColor: AppColors.storageFreeText
             )
         }
         .overviewCard()
@@ -448,6 +449,7 @@ private struct OverviewPlainRow: View {
     let bytes: Int64
     let share: Double
     let linkedState: OverviewLinkedRowState
+    var valueColor: Color = AppColors.textPrimary
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -469,6 +471,7 @@ private struct OverviewPlainRow: View {
                 .overviewNumberTransition(share, reduceMotion: reduceMotion)
             Text(formatStorageBytes(bytes))
                 .font(AppStyle.Typography.sectionTitle)
+                .foregroundStyle(valueColor)
                 .overviewNumberTransition(bytes, reduceMotion: reduceMotion)
                 .frame(minWidth: 64, alignment: .trailing)
         }

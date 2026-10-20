@@ -15,6 +15,7 @@ Tokens are named by job. The neutrals are a warm graphite: low-chroma greys lean
 | Token | Light | Dark | Use for | Contrast (L / D) |
 | --- | --- | --- | --- | --- |
 | `textPrimary` | `#2E2D2B` | `#ECEAE6` | Body text, titles | 13.8 / 14.0 |
+| `storageFreeText` | `#217A00` | `#39FF14` | Free-storage figures; neon in dark mode, deeper green in light mode | 5.46 / 12.41 |
 | `textSecondary` | `#64625E` | `#A6A39D` | Metadata, captions, idle sidebar items | 6.1 / 6.7 |
 | `textTertiary` | `#85827C` | `#807D78` | Icons, chevrons, placeholders, timestamps. Never a sentence | 3.8 / 4.1 |
 | `surfaceBase` | `#F6F5F3` | `#171615` | Window background | |
@@ -34,7 +35,7 @@ Tokens are named by job. The neutrals are a warm graphite: low-chroma greys lean
 | `statusDangerText` / `Fill` | `#B4302A` / `#FBE8E5` | `#F47468` / `#321B19` | In use, errors | 5.2 / 5.8 |
 | `statusUnsureText` / `Fill` | `#5A5853` / `#EFEDEA` | `#A9A6A0` / `#282725` | Unknown | 6.1 / 6.2 |
 
-Hover and pressed shades exist for `actionPrimary` and `actionDestructive` too. `AppColors.Chart` holds the Overview breakdown colours (Okabe and Ito, colour-blind safe) and the warm greys for "everything else" and free space.
+Hover and pressed shades exist for `actionPrimary` and `actionDestructive` too. `AppColors.Chart` holds the Overview breakdown colours (Okabe and Ito, colour-blind safe) a warm grey for "everything else", and the shared green for free space.
 
 The cleanup celebration forces dark mode and draws on `surfaceBase`, so it uses the ordinary dark tokens. Plain white and black are only for shadows, masks, glyphs on coloured chart tiles, and the menu bar dropdown's native selection highlight.
 

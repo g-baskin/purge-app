@@ -304,13 +304,7 @@ enum DeletionSafetyPolicy {
             // next launch. Safe, not Check First.
             "\(home)/Library/Application Support/Adobe/Common/Media Cache Files",
             "\(home)/Library/Application Support/Adobe/Common/Media Cache",
-            // AUDIT: Docker's container holds images/volumes. Re-pullable but
-            // deleting can be costly — Check First, not Safe. This list only
-            // decides that the path may be offered; the tier comes from the
-            // `docker` entry in explanations.json (pinned by DockerSafetyTierTests).
-            // (App Caches scan already excludes com.docker.* bundle IDs; this
-            // entry is used by the Dev Tools path.)
-            "\(home)/Library/Containers/com.docker.docker",
+            // Docker data is managed through the Docker view. Never wipe its VM disk as a cache.
             "\(home)/.vagrant.d/boxes",
             "/Applications/Install macOS"
         ]

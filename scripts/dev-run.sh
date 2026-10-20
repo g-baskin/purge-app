@@ -17,6 +17,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DERIVED="$ROOT/build/dev"
 APP="$DERIVED/Build/Products/Debug/Purge.app"
 EXECUTABLE="$APP/Contents/MacOS/Purge"
+CANONICAL_APP="/Users/dellcbyerllc/projects/purge-app/build/dev/Build/Products/Debug/Purge.app"
+if [[ "$APP" != "$CANONICAL_APP" ]]; then
+  echo "This fork only runs from $CANONICAL_APP" >&2
+  exit 1
+fi
 
 open_app=1
 case "${1:-}" in
@@ -73,5 +78,5 @@ for _ in {1..50}; do # wait up to 5 seconds for it to quit
   sleep 0.1
 done
 
-open "$APP"
+"$ROOT/scripts/open-my-purge.sh"
 echo "Opened $APP"

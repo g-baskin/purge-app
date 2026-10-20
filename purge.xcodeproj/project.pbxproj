@@ -614,6 +614,7 @@
 				CURRENT_PROJECT_VERSION = 26;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = BX83ZBV95B;
+				CODE_SIGN_ENTITLEMENTS = purge/Purge.entitlements;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -626,7 +627,8 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = purge/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Purge;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(PURGE_APP_DISPLAY_NAME)";
+				PURGE_APP_DISPLAY_NAME = Purge;
 				INFOPLIST_KEY_CFBundleName = Purge;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -634,7 +636,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.7.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.getpurge.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PURGE_APP_BUNDLE_IDENTIFIER)";
+				PURGE_APP_BUNDLE_IDENTIFIER = io.getpurge.app;
+				PURGE_URL_SCHEME = purge;
 				PRODUCT_NAME = Purge;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;
@@ -666,6 +670,7 @@
 				CURRENT_PROJECT_VERSION = 26;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = BX83ZBV95B;
+				CODE_SIGN_ENTITLEMENTS = purge/Purge.entitlements;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -678,7 +683,8 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = purge/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Purge;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(PURGE_APP_DISPLAY_NAME)";
+				PURGE_APP_DISPLAY_NAME = Purge;
 				INFOPLIST_KEY_CFBundleName = Purge;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -686,7 +692,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.7.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.getpurge.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PURGE_APP_BUNDLE_IDENTIFIER)";
+				PURGE_APP_BUNDLE_IDENTIFIER = io.getpurge.app;
+				PURGE_URL_SCHEME = purge;
 				PRODUCT_NAME = Purge;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				REGISTER_APP_GROUPS = YES;

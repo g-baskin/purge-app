@@ -432,7 +432,7 @@ nonisolated final class DevScanner {
                 home.appendingPathComponent(".swiftpm/cache", isDirectory: true)
             ]),
             ("Android SDK .gradle", [home.appendingPathComponent(".android", isDirectory: true)]),
-            ("Docker Desktop", [home.appendingPathComponent("Library/Containers/com.docker.docker", isDirectory: true)]),
+            // Docker objects are reviewed through its local Engine API, never by deleting Docker.raw.
 
             ("Git Worktrees", [
                 home.appendingPathComponent(".git/worktrees", isDirectory: true)

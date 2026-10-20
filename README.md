@@ -38,7 +38,23 @@
 Your Mac quietly fills up with cache and junk you never see and never asked for. Purge finds it, marks what is safe, and clears it in one click.
 
 > [!NOTE]
-> Nothing is ever deleted permanently. Everything moves to the Trash, so anything can come back.
+> File cleanup moves items to Trash. **Empty Trash** and **Docker object removal** permanently delete data after confirmation and cannot be undone.
+
+### Docker, Downloads and protection
+
+- **Docker** in Review shows the local Docker Desktop Engine's images, containers, volumes and build cache. Offline is a normal state; starting Docker is your choice. No automatic Docker cleanup or remote Docker hosts. Selective removals are permanent, never forced, revalidated against the same daemon, and refused for running/in-use/unknown-use objects. Container removal preserves volumes. Back up volumes before removal. Shared layers and virtual-disk allocation mean reported sizes do not equal immediately freed Mac space. Build cache is review-only: Purge deliberately does not bulk-prune potentially protected records. Docker's VM disk is not a deletable cache.
+- **Downloads** in Review lists immediate downloads, largest-first or newest-first, with search, Finder reveal, optional folder measurement and explicitly selected moves to Trash. It never auto-selects downloads or follows symlink entries outside that review boundary.
+- **Protected items** in Settings lets you protect files, folders or app bundles. Docker and Downloads also have row lock controls. Locks persist across app restarts. A protected folder covers descendants and also blocks deletion of a containing parent. App support folders outside a bundle can be protected separately. Deletion, removing a lock and emptying Trash when file locks exist require **Touch ID or your Mac login password**, through macOS LocalAuthentication; Purge never receives the password or fingerprint. Approval is scoped to the requested protected records and lasts up to five minutes for that action, without removing the locks. Scheduled/safe automatic cleanup skips protected entries and never prompts. An unreadable/corrupt protection store blocks deletion rather than assuming no locks. These protections apply inside Purge, not to Finder or other programs.
+
+Implementation references: [Docker Engine API v1.47](https://docs.docker.com/reference/api/engine/version/v1.47.yaml), [macOS device-owner authentication](https://developer.apple.com/documentation/localauthentication/lapolicy/deviceownerauthentication), [curl options](https://curl.se/docs/manpage.html).
+
+### This personal copy
+
+Normal launches are locked to this repo's signed `build/dev/Build/Products/Debug/Purge.app` and its existing local certificate. Open it using **Open My Purge.command** or `scripts/open-my-purge.sh`; rebuild with `scripts/dev-run.sh`. Keep the same app path and signing certificate to retain Full Disk Access. Upstream Sparkle updates are disabled so they cannot replace this fork.
+
+New builds at other paths or with another signature exit before app services start. Hosted tests use the separate `io.getpurge.app.testhost` identifier and `purge-testhost` URL scheme through `scripts/dev-test.sh`, without sharing the personal app's permission identity. Do not run hosted tests under the production app ID.
+
+This is a repo launch guard, not a macOS-wide application ban. Existing older binaries do not gain the guard retroactively; competing local copies must be disabled separately with the owner's approval. No app data or other copies are deleted.
 
 You do not need to understand any of it to use it. But if you ever want to check, every item carries a plain-English explanation and a safety label, so nothing gets touched that you cannot see and verify first.
 
@@ -67,7 +83,7 @@ Scans `~/Library/Caches`, sandbox container caches, and common system junk:
 
 Three sections in one view:
 
-- **Global dev tool caches**: Xcode (Derived Data, Archives, DeviceSupport), Homebrew, npm, pnpm, Yarn, CocoaPods, Gradle, Flutter, Docker Desktop, VS Code, Cursor, JetBrains, Cargo, Terraform, and more
+- **Global dev tool caches**: Xcode (Derived Data, Archives, DeviceSupport), Homebrew, npm, pnpm, Yarn, CocoaPods, Gradle, Flutter, VS Code, Cursor, JetBrains, Cargo, Terraform, and more (Docker storage has its own Review tab)
 - **iOS Simulators**: unused simulator runtimes grouped together (booted simulators are skipped)
 - **Developer projects**: `node_modules`, Python virtual environments, Rust `target`, Flutter build output, Xcode `Pods`, Android `.gradle`, and other artifacts grouped by project
 
@@ -126,7 +142,8 @@ The labels and explanations are there to be checked, not read cover to cover. Se
 - **Clean Selected**: pick specific rows, review in a confirmation sheet, then delete. Git and lockfile checks run first
 - **Clean Safe Files**: same safe cleanup from the menu bar
 - **Scheduled cleaning**: in **Settings → Cleaning Schedule**, enable **Run automatic cleaning** and choose **How often** (weekly, monthly, every 3 months, or a **Custom** interval you set in days, weeks, or months). Purge sends a local reminder and cleans safe items when you open the app, so the cleanup keeps happening without you thinking about it
-- All deletions move items to **Trash**, not permanent removal
+- All cleaning moves items to **Trash**, not permanent removal
+- **Empty Trash**: click the existing Trash card (or right-click and choose **Empty Trash…**), then confirm permanent deletion. Finder empties Trash across mounted drives. macOS may require permission under **Privacy & Security → Automation**. Emptying runs in the background, aiming for under 10 seconds, but large, locked, or busy items can take longer or fail. There is no 10-second cutoff.
 
 ### Settings
 
@@ -352,7 +369,7 @@ Purge never reads or sends file contents.
 
 Purge deletes files, so safety is the point. A few things worth knowing:
 
-- **Trash by default**: Nothing is permanently deleted. Items move to the macOS Trash and can be restored until you empty it.
+- **Trash by default**: File cleanup moves items to the macOS Trash, where they can be restored until you empty it. Empty Trash and Docker object removal are separate, explicitly confirmed permanent operations.
 - **Allowlist-based deletion**: Only paths that match an explicit safety allowlist are ever eligible for cleanup. Anything Purge does not recognize is never touched.
 - **You choose what goes**: Purge shows what is reclaimable and you decide what to clear.
 - **Open source**: The full deletion logic, including the allowlist, is in this repo for you to read or build from source yourself.

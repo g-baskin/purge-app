@@ -107,6 +107,8 @@ final class PurgeStore: ObservableObject {
         case overview = "Overview"
         case appCaches = "App Caches"
         case devTools = "Dev Tools"
+        case docker = "Docker"
+        case downloads = "Downloads"
         case largeFiles = "Large Files"
         case uninstaller = "App Uninstaller"
         case settings = "Settings"
@@ -118,6 +120,8 @@ final class PurgeStore: ObservableObject {
             case .overview: return "square.grid.2x2"
             case .appCaches: return "internaldrive"
             case .devTools: return "hammer"
+            case .docker: return "shippingbox"
+            case .downloads: return "arrow.down.circle"
             case .largeFiles: return "tray.full"
             case .uninstaller: return "trash"
             case .settings: return "gearshape"
@@ -128,7 +132,7 @@ final class PurgeStore: ObservableObject {
         /// The sidebar groups the scan tabs by what Purge may do with what they find:
         /// caches it can clean, and the user's own things it only helps review.
         static let cleanTabs: [Tab] = [.appCaches, .devTools]
-        static let reviewTabs: [Tab] = [.largeFiles, .uninstaller]
+        static let reviewTabs: [Tab] = [.docker, .downloads, .largeFiles, .uninstaller]
         static let utilityTabs: [Tab] = [.settings, .about]
     }
 
@@ -968,6 +972,7 @@ final class PurgeStore: ObservableObject {
                 at: urls,
                 pathToDisplayName: pathToDisplayName,
                 pathToExpectedSizeBytes: pathToExpectedSizeBytes,
+                allowsProtectedAuthentication: trigger == .manual,
                 onProgress: onProgress
             )
             let elapsedSeconds = Date().timeIntervalSince(engineStart)
@@ -3255,6 +3260,7 @@ final class PurgeStore: ObservableObject {
                 at: combined,
                 pathToDisplayName: pathToDisplayName,
                 pathToExpectedSizeBytes: pathToExpectedSizeBytes,
+                allowsProtectedAuthentication: false,
                 onProgress: onProgress
             )
             let elapsedSeconds = Date().timeIntervalSince(engineStart)

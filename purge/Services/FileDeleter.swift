@@ -108,6 +108,20 @@ nonisolated struct DeletionReport: Identifiable {
 /// Deletion engine. Runs off the main actor (`@concurrent`) so large removals
 /// never block the UI; progress reaches the UI via the `onProgress` buffer.
 nonisolated final class FileDeleter: Sendable {
+    private let protectionStore: DeletionProtection
+
+    init(protectionStore: DeletionProtection = .shared) {
+        self.protectionStore = protectionStore
+    }
+
+    static func isManagedDockerData(_ url: URL) -> Bool {
+        if ["docker.raw", "docker.qcow2"].contains(url.lastPathComponent.lowercased()) { return true }
+        let root = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Containers/com.docker.docker").resolvingSymlinksInPath().path
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        return path == root || path.hasPrefix(root + "/")
+    }
+
     /// - Parameter pathToDisplayName: Keys should be standardized file paths (`URL.standardizedFileURL.path`).
     /// - Parameter pathToExpectedSizeBytes: Pre-scan sizes from deletion candidates; avoids re-measuring folders at delete time.
     /// - Parameter onProgress: Called on the engine's executor after each item starts / successfully
@@ -116,9 +130,13 @@ nonisolated final class FileDeleter: Sendable {
         at urls: [URL],
         pathToDisplayName: [String: String] = [:],
         pathToExpectedSizeBytes: [String: Int64] = [:],
+        allowsProtectedAuthentication: Bool = true,
         onProgress: (@Sendable (DeletionProgressEvent) -> Void)? = nil
     ) async throws -> DeletionReport {
         defer { Self.forgetSavedSizes(around: urls) }
+        let protectionGrant = try await ProtectionAuthentication.authorize(
+            store: protectionStore, urls: urls, interactive: allowsProtectedAuthentication
+        )
         var bytesMovedToTrash: Int64 = 0
         var bytesRemovedDirectly: Int64 = 0
         var deletedItems: [DeletedItem] = []
@@ -130,6 +148,12 @@ nonisolated final class FileDeleter: Sendable {
         for url in urls {
             let standardizedPath = url.standardizedFileURL.path
             let friendlyTitle = pathToDisplayName[standardizedPath]
+            guard !Self.isManagedDockerData(url), protectionStore.allows(url: url, grant: protectionGrant) else {
+                skippedItems.append(SkippedDeletionItem(path: url.path, displayName: friendlyTitle,
+                    reason: Self.isManagedDockerData(url) ? "Manage Docker data in the Docker section, not by deleting its virtual disk." : "Protected item: authentication required.",
+                    isUserVisible: true))
+                continue
+            }
 
             guard DeletionSafetyPolicy.isOfferedForCleanup(url) else { continue }
 
@@ -166,7 +190,7 @@ nonisolated final class FileDeleter: Sendable {
                         for contentURL in contents {
                             guard DeletionSafetyPolicy.isOfferedForCleanup(contentURL) else { continue }
                             do {
-                                let piece = try Self.moveToTrash(contentURL)
+                                let piece = try moveToTrash(contentURL, grant: protectionGrant)
                                 didDeleteAnyContent = true
                                 if let piece {
                                     pieces.append(piece)
@@ -194,6 +218,11 @@ nonisolated final class FileDeleter: Sendable {
                         onProgress?(.itemDeleted(sizeBytes: size))
                     }
                 } else if let udid = Self.coreSimulatorDeviceUDID(from: url) {
+                    guard protectionStore.allows(url: url, grant: protectionGrant) else {
+                        skippedItems.append(SkippedDeletionItem(path: url.path, displayName: friendlyTitle,
+                            reason: "Protected item: authentication required.", isUserVisible: true))
+                        continue
+                    }
                     switch Self.deleteCoreSimulatorDevice(udid: udid) {
                     case .success:
                         bytesRemovedDirectly += size
@@ -226,7 +255,7 @@ nonisolated final class FileDeleter: Sendable {
                         continue
                     }
                     do {
-                        let piece = try Self.moveToTrash(url)
+                        let piece = try moveToTrash(url, grant: protectionGrant)
                         bytesMovedToTrash += size
                         deletedItems.append(DeletedItem(
                             path: url.path,
@@ -280,9 +309,13 @@ nonisolated final class FileDeleter: Sendable {
         pathToDisplayName: [String: String] = [:],
         pathToExpectedSizeBytes: [String: Int64] = [:],
         privilegedEligiblePaths: Set<String> = [],
+        allowsProtectedAuthentication: Bool = true,
         onProgress: (@Sendable (DeletionProgressEvent) -> Void)? = nil
     ) async throws -> DeletionReport {
         defer { Self.forgetSavedSizes(around: urls) }
+        let protectionGrant = try await ProtectionAuthentication.authorize(
+            store: protectionStore, urls: urls, interactive: allowsProtectedAuthentication
+        )
         var bytesMovedToTrash: Int64 = 0
         var deletedItems: [DeletedItem] = []
         var failedItems: [FailedDeletionItem] = []
@@ -294,6 +327,12 @@ nonisolated final class FileDeleter: Sendable {
         for url in urls {
             let standardizedPath = url.standardizedFileURL.path
             let friendlyTitle = pathToDisplayName[standardizedPath]
+            guard !Self.isManagedDockerData(url), protectionStore.allows(url: url, grant: protectionGrant) else {
+                skippedItems.append(SkippedDeletionItem(path: url.path, displayName: friendlyTitle,
+                    reason: Self.isManagedDockerData(url) ? "Manage Docker data in the Docker section, not by deleting its virtual disk." : "Protected item: authentication required.",
+                    isUserVisible: true))
+                continue
+            }
 
             // AI model components live in hidden runtime directories that the
             // large-file policy deliberately refuses, so they carry their own
@@ -302,6 +341,7 @@ nonisolated final class FileDeleter: Sendable {
             let isEligible = LargeFileScanPolicy.isEligibleForDeletion(url)
                 || AIModelScanPolicy.isEligibleForDeletion(url)
                 || AppUninstallScanPolicy.isEligibleForUninstallDeletion(url)
+                || DownloadsPolicy.isEligible(url)
             guard isEligible else {
                 skippedItems.append(SkippedDeletionItem(
                     path: url.path,
@@ -315,7 +355,7 @@ nonisolated final class FileDeleter: Sendable {
             onProgress?(.itemStarted(name: friendlyTitle ?? url.lastPathComponent))
             let size = pathToExpectedSizeBytes[standardizedPath] ?? FolderSizing.singleFileSize(at: url)
             do {
-                let piece = try Self.moveToTrash(url)
+                let piece = try moveToTrash(url, grant: protectionGrant)
                 bytesMovedToTrash += size
                 deletedItems.append(DeletedItem(
                     path: url.path,
@@ -345,6 +385,7 @@ nonisolated final class FileDeleter: Sendable {
                 ownershipWarningPaths: &ownershipWarningPaths,
                 privilegedEligiblePaths: privilegedEligiblePaths,
                 pathToDisplayName: pathToDisplayName,
+                protectionGrant: protectionGrant,
                 onProgress: onProgress
             )
         }
@@ -373,7 +414,10 @@ nonisolated final class FileDeleter: Sendable {
 
     /// Moves `url` to the Trash and returns where it landed, so it can be put back.
     /// `nil` when the system did not report a location (the move still happened).
-    private static func moveToTrash(_ url: URL) throws -> TrashedPiece? {
+    private func moveToTrash(_ url: URL, grant: ProtectionGrant?) throws -> TrashedPiece? {
+        guard !Self.isManagedDockerData(url), protectionStore.allows(url: url, grant: grant) else {
+            throw ProtectionError.protectedItem
+        }
         var resulting: NSURL?
         try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
         guard let landed = resulting as URL? else { return nil }
@@ -394,6 +438,7 @@ nonisolated final class FileDeleter: Sendable {
         ownershipWarningPaths: inout [String],
         privilegedEligiblePaths: Set<String>,
         pathToDisplayName: [String: String],
+        protectionGrant: ProtectionGrant?,
         onProgress: (@Sendable (DeletionProgressEvent) -> Void)?
     ) async {
         // With Full Disk Access granted, an ownership denial resolves to `.unknown`.
@@ -403,11 +448,14 @@ nonisolated final class FileDeleter: Sendable {
             $0.reason == .unknown
                 && privilegedEligiblePaths.contains(URL(fileURLWithPath: $0.path).standardizedFileURL.path)
                 && FileManager.default.fileExists(atPath: $0.path)
+                && protectionStore.allows(url: URL(fileURLWithPath: $0.path), grant: protectionGrant)
+                && !Self.isManagedDockerData(URL(fileURLWithPath: $0.path))
         }
         guard !candidates.isEmpty else { return }
 
         let result = await PrivilegedUninstall.moveToTrash(
-            candidates.map { URL(fileURLWithPath: $0.path) }
+            candidates.map { URL(fileURLWithPath: $0.path) },
+            protectionStore: protectionStore, protectionGrant: protectionGrant
         )
         let movedPaths = Set(result.moved.map { $0.standardizedFileURL.path })
         let indeterminatePaths = Set(result.indeterminate.map { $0.standardizedFileURL.path })

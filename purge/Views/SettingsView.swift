@@ -44,6 +44,7 @@ struct SettingsView: View {
                     startupSection
                     deletedAppsSection
                     protectedAppRemovalSection
+                    ProtectionSettingsSection()
                     appearanceSection
                     cleaningScheduleSection
                     devToolsSection
@@ -124,12 +125,12 @@ struct SettingsView: View {
     }
 
     private var protectedAppRemovalSection: some View {
-        settingsSection("Protected App Removal") {
+        settingsSection("Administrator-owned app removal") {
             // A switch, like every other setting, so the control never changes shape
             // between states. Turning it on registers the helper (which then waits on
             // approval in System Settings); turning it off unregisters it.
             settingsToggleRow(
-                title: "Remove admin-locked apps without a password",
+                title: "Use the administrator helper for app removal",
                 caption: helperCaption,
                 isOn: helperEnabledBinding
             )

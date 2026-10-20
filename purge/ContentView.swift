@@ -375,7 +375,7 @@ struct ContentView: View {
         case .devTools: categories = [.devTools]
         case .largeFiles: categories = [.largeFiles]
         case .uninstaller: categories = [.apps, .leftovers]
-        case .overview, .settings, .about: return .none
+        case .overview, .docker, .downloads, .settings, .about: return .none
         }
         let phases = categories.map(store.overviewPhase(for:))
         // The Uninstaller covers two scans. Once one is redone and the other still
@@ -422,6 +422,10 @@ struct ContentView: View {
         switch store.selectedTab {
         case .overview:
             overviewTabBody
+        case .docker:
+            DockerView().underDetailPageHeader(includesSubtitle: true)
+        case .downloads:
+            DownloadsView().underDetailPageHeader(includesSubtitle: true)
         case .about:
             aboutTabBody
         // App Caches and Dev Tools work without Full Disk Access (limited scans). Large Files
@@ -642,6 +646,10 @@ struct ContentView: View {
             return pageSubtitle(count: appCachesSubtitleItemCount, bytes: appCachesSubtitleTotalSize)
         case .devTools:
             return pageSubtitle(count: devToolsSubtitleItemCount, bytes: devToolsSubtitleTotalSize)
+        case .docker:
+            return "Review local Docker storage before removing anything."
+        case .downloads:
+            return "Review Downloads. Nothing is removed automatically."
         case .largeFiles:
             return store.hasFullDiskAccess ? largeFilesPageSubtitle : nil
         case .uninstaller:
@@ -877,6 +885,8 @@ struct SidebarSummaryView: View {
     @EnvironmentObject var store: PurgeStore
     @EnvironmentObject var trashStore: TrashStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var confirmEmptyTrash = false
+    @State private var emptyTrashError: String?
 
     private static let font = AppStyle.Typography.callout.weight(.medium)
 
@@ -895,50 +905,94 @@ struct SidebarSummaryView: View {
     /// What is already in the Trash, as one sentence on its own card. Cleaning moves
     /// files there, so this is the figure that changes after a clean, on every tab; the
     /// Overview covers used and free space. A sentence on a card, not a label and a
-    /// value in a row, so it never reads as another tab. Emptying the Trash is the
-    /// user's call in Finder, so the card carries no action.
+    /// value in a row, so it never reads as another tab. The existing card keeps its
+    /// appearance; clicking it or using its context menu offers a confirmed permanent empty.
     private var trashCard: some View {
-        HStack(spacing: AppStyle.Spacing.xSmall) {
-            Image(systemName: "trash")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(AppColors.textSecondary)
-                .accessibilityHidden(true)
-            trashSentence
-            Spacer(minLength: 0)
+        Button {
+            confirmEmptyTrash = true
+        } label: {
+            HStack(spacing: AppStyle.Spacing.xSmall) {
+                Image(systemName: "trash")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .accessibilityHidden(true)
+                trashSentence
+                Spacer(minLength: 0)
+            }
+            .font(Self.font)
+            .padding(.horizontal, AppStyle.Spacing.small)
+            .padding(.vertical, AppStyle.Spacing.xSmall + 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
+                    .fill(AppColors.fillSecondary)
+            )
         }
-        .font(Self.font)
-        .padding(.horizontal, AppStyle.Spacing.small)
-        .padding(.vertical, AppStyle.Spacing.xSmall + 2)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: AppStyle.Radius.lg, style: .continuous)
-                .fill(AppColors.fillSecondary)
-        )
+        .buttonStyle(.plain)
+        .disabled(trashStore.isEmptying)
         .accessibilityElement(children: .combine)
+        .contextMenu {
+            Button("Open Trash in Finder") { trashStore.openTrashInFinder() }
+            Button("Empty Trash…", role: .destructive) { confirmEmptyTrash = true }
+                .disabled(trashStore.isEmptying)
+        }
+        .help("Click to permanently empty Trash; right-click to open it in Finder")
+        .accessibilityAction(named: Text("Empty Trash")) {
+            if !trashStore.isEmptying { confirmEmptyTrash = true }
+        }
+        .alert("Permanently empty Trash?", isPresented: $confirmEmptyTrash) {
+            Button("Cancel", role: .cancel) { }
+            Button("Empty Trash", role: .destructive) {
+                Task {
+                    if case .failed(let message) = await trashStore.emptyTrash() {
+                        emptyTrashError = message
+                    }
+                }
+            }
+        } message: {
+            Text("All items in Finder’s Trash, including other mounted drives, will be permanently deleted. This cannot be undone. If you have protected files or apps, Touch ID or your Mac login password is required. macOS may ask you to allow Purge to control Finder.")
+        }
+        .alert("Trash could not be emptied", isPresented: Binding(
+            get: { emptyTrashError != nil },
+            set: { if !$0 { emptyTrashError = nil } }
+        )) {
+            Button("Open Finder") { trashStore.openTrashInFinder() }
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(emptyTrashError ?? "")
+        }
     }
 
     @ViewBuilder
     private var trashSentence: some View {
-        switch trashStore.access {
-        case .measuring:
-            // The spinner holds the number's place, so the sentence does not jump.
+        if trashStore.isEmptying {
             HStack(spacing: 4) {
                 trashLoadingIndicator
-                Text("in Trash").foregroundStyle(AppColors.textSecondary)
+                Text("Emptying Trash…").foregroundStyle(AppColors.textSecondary)
             }
-            .accessibilityLabel("Measuring the Trash")
-        case .unreadable:
-            // No Full Disk Access: the size is genuinely unknown, and a zero would
-            // read as an empty Trash.
-            Text("Trash size unavailable").foregroundStyle(AppColors.textSecondary)
-        case .readable where trashStore.trashBytes <= 0:
-            Text("Trash is empty").foregroundStyle(AppColors.textSecondary)
-        case .readable:
-            (Text(formatBytes(trashStore.trashBytes)).foregroundColor(AppColors.textPrimary).fontWeight(.semibold)
-                + Text(" in Trash").foregroundColor(AppColors.textSecondary))
-                .monospacedDigit()
-                .contentTransition(reduceMotion ? .identity : .numericText())
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.45), value: trashStore.trashBytes)
+            .accessibilityLabel("Emptying the Trash")
+        } else {
+            switch trashStore.access {
+            case .measuring:
+                // The spinner holds the number's place, so the sentence does not jump.
+                HStack(spacing: 4) {
+                    trashLoadingIndicator
+                    Text("in Trash").foregroundStyle(AppColors.textSecondary)
+                }
+                .accessibilityLabel("Measuring the Trash")
+            case .unreadable:
+                // No Full Disk Access: the size is genuinely unknown, and a zero would
+                // read as an empty Trash.
+                Text("Trash size unavailable").foregroundStyle(AppColors.textSecondary)
+            case .readable where trashStore.trashBytes <= 0:
+                Text("Trash is empty").foregroundStyle(AppColors.textSecondary)
+            case .readable:
+                (Text(formatBytes(trashStore.trashBytes)).foregroundColor(AppColors.textPrimary).fontWeight(.semibold)
+                    + Text(" in Trash").foregroundColor(AppColors.textSecondary))
+                    .monospacedDigit()
+                    .contentTransition(reduceMotion ? .identity : .numericText())
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.45), value: trashStore.trashBytes)
+            }
         }
     }
 

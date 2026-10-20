@@ -73,7 +73,7 @@ struct LookDeeperView: View {
   private var promises: some View {
     LookDeeperPromise(symbol: "eye", text: "Only cleans when you say")
     LookDeeperPromise(symbol: "icloud.slash", text: "Nothing leaves your Mac")
-    LookDeeperPromise(symbol: "trash", text: "Everything goes to the Trash")
+    LookDeeperPromise(symbol: "trash", text: "File cleanup goes to the Trash")
   }
 
   private var askingBody: some View {

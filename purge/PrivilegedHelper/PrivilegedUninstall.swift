@@ -24,7 +24,11 @@ nonisolated struct PrivilegedMoveResult: Sendable {
 /// moves nothing and reports the items back — the UI then invites the user to enable
 /// the helper once, through the trustworthy system prompt, rather than ambushing them.
 nonisolated enum PrivilegedUninstall {
-    static func moveToTrash(_ urls: [URL]) async -> PrivilegedMoveResult {
+    static func moveToTrash(_ urls: [URL], protectionStore: DeletionProtection = .shared,
+                            protectionGrant: ProtectionGrant? = nil) async -> PrivilegedMoveResult {
+        guard urls.allSatisfy({ !FileDeleter.isManagedDockerData($0) && protectionStore.allows(url: $0, grant: protectionGrant) }) else {
+            return PrivilegedMoveResult(moved: [], failed: urls, indeterminate: [], helperAvailable: false)
+        }
         guard !urls.isEmpty else {
             return PrivilegedMoveResult(moved: [], failed: [], indeterminate: [])
         }

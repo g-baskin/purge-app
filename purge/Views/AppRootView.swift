@@ -27,6 +27,16 @@ struct AppRootView: View {
   }
 
   var body: some View {
+    if Bundle.main.bundleIdentifier == PersonalCopyLock.testBundleIdentifier || TestHost.isActive() {
+      // Hosted tests render their own fixtures. Never mount onboarding or the
+      // personal app's permission probes and live scans in the test application.
+      Color.clear
+    } else {
+      applicationContent
+    }
+  }
+
+  private var applicationContent: some View {
     ZStack {
       // Mounted only once it is about to be needed. Keeping it in the hierarchy for the
       // whole of onboarding meant the full main app — including the App Caches list and

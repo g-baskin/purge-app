@@ -19,6 +19,9 @@ enum AppColors {
     /// has to read (3.8:1 light, 4.1:1 dark).
     static let textTertiary = Color(light: 0x85827C, dark: 0x807D78)
 
+    /// Free-storage figures: neon green on dark surfaces, deeper green for readable light-mode text.
+    static let storageFreeText = Color(light: 0x217A00, dark: 0x39FF14)
+
     // MARK: - Surfaces
 
     /// The window background.
@@ -104,8 +107,8 @@ enum AppColors {
         /// Close to the sidebar's "used" grey, and well apart from free space in
         /// both themes.
         static let everythingElse = Color(light: 0x8C8983, dark: 0xA8A49D)
-        /// Free space on the storage bars.
-        static let freeSpace = Color(light: 0xDAD7D2, dark: 0x4E4B47)
+        /// Free space uses the same green as its figures, including the storage bar.
+        static let freeSpace = AppColors.storageFreeText
     }
 
     // MARK: - AppKit

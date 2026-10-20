@@ -89,6 +89,8 @@ extension EnvironmentValues {
 
 @main
 struct PurgeApp: App {
+    // First initializer: reject other builds before they can touch personal app state.
+    private let copyAuthorization: Void = PersonalCopyLock.enforce()
     @NSApplicationDelegateAdaptor(PurgeAppDelegate.self) private var appDelegate
     // Adopted from `AppEnvironment`, not created here: these outlive the window.
     @StateObject private var store = AppEnvironment.store

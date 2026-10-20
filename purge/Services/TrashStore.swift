@@ -52,13 +52,9 @@ enum TrashAccess: Equatable {
     case unreadable
 }
 
-/// Owns the trash total and hands the user off to Finder to act on it.
-///
-/// Purge deliberately cannot empty the trash. Deleting for good is the user's decision
-/// to make, in the app that owns the trash across every mounted volume, with its own
-/// warning in front of it. That keeps "Purge never permanently deletes anything" true
-/// without an asterisk, and costs nothing: Finder is one click away, and this needs no
-/// automation permission at all.
+/// Owns the trash total and delegates explicitly confirmed permanent emptying to Finder.
+/// Normal cleaning still moves files to Trash. Only the separate Empty Trash action
+/// permanently removes them, across Finder's mounted volumes.
 ///
 /// The total comes from watching the trash directories rather than from refresh calls wired
 /// into each clean path. Anything that changes the trash updates the number: Purge's own
@@ -70,6 +66,8 @@ enum TrashAccess: Equatable {
 /// of megabytes, and what made it ignore everything the user deleted in Finder.
 @MainActor
 final class TrashStore: ObservableObject {
+    @Published private(set) var isEmptying = false
+    @Published private(set) var lastEmptyDuration: TimeInterval?
     @Published private(set) var trashBytes: Int64 = 0
     @Published private(set) var access: TrashAccess = .measuring
     /// Trash total when the app last went to the background, so a drop can be compared
@@ -423,6 +421,27 @@ final class TrashStore: ObservableObject {
         guard access == .readable, let before = trashBytesWhenBackgrounded else { return nil }
         let drop = before - trashBytes
         return drop > 0 ? drop : nil
+    }
+
+    /// Call only after the user confirms permanent deletion. Concurrent requests are ignored.
+    func emptyTrash(
+        using operation: (@Sendable () -> TrashEmptyingService.Result)? = nil
+    ) async -> TrashEmptyingService.Result? {
+        guard !isEmptying else { return nil }
+        isEmptying = true
+        defer { isEmptying = false }
+        lastEmptyDuration = nil
+        let grant: ProtectionGrant?
+        do { grant = try await ProtectionAuthentication.authorize(allFiles: true) }
+        catch { return .failed(error.localizedDescription) }
+        let started = ProcessInfo.processInfo.systemUptime
+        let result = await Task.detached(priority: .userInitiated) {
+            operation?() ?? TrashEmptyingService.empty(grant: grant)
+        }.value
+        lastEmptyDuration = ProcessInfo.processInfo.systemUptime - started
+        // Do not optimistically claim zero: Finder may encounter locked files or new arrivals.
+        await refresh(trigger: "empty-trash")
+        return result
     }
 
     /// Opens the trash Finder shows, which is the one place all of these directories appear as

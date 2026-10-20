@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Purge asks Finder to permanently empty Trash only after you confirm Empty Trash.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -9,7 +11,7 @@
 			<string>io.getpurge.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>purge</string>
+				<string>$(PURGE_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
