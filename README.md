@@ -357,11 +357,11 @@ On another Mac, `git clone https://github.com/g-baskin/purge-app.git`, then add 
 
 ## Privacy
 
-Purge runs entirely on your Mac. Scans, explanations, manual overrides, and cleanup history stay in local Application Support. Nothing is uploaded.
+Purge scans and cleans files locally. Duplicate detection reads and hashes file contents on your Mac to identify byte-identical copies. File contents and cleanup records are not uploaded.
 
-The one time Purge talks to the network is the update check: once a day it fetches a small XML file from GitHub to see whether a newer version is available. It sends nothing about you or your Mac, and you can turn it off in **Settings → Updates**.
+**Cleaning History** stores file paths, Trash destinations, byte counts, timestamps, and skipped-item details under `~/Library/Application Support/io.getpurge.app/`. It keeps up to 100 cleanup sessions. Use **Clear history** in Settings to remove these records; this does not delete or restore files in Trash. Protected-item records and scan exclusions are stored locally in the same folder until you remove them through their respective controls. Removed-app reviews also keep local app-removal records under `~/Library/Application Support/Purge/`. Settings are stored in macOS preferences, separately from the app, so replacing the app does not clear them.
 
-Purge never reads or sends file contents.
+This personal fork disables upstream update checks. Links such as the source repository and optional donation page open in your browser; those external sites have their own privacy practices.
 
 ---
 

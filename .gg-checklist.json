@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "items": {
+    "agent-setup": {
+      "checkedAt": "2026-10-20T00:17:40.346Z",
+      "commit": "67cd212",
+      "uncommittedChanges": true,
+      "result": "issues",
+      "summary": "Created and source-checked fenced CLAUDE.md; recurring Swift/macOS signing and helper work lacks project-local skill coverage.",
+      "findings": [
+        "Low — .gg/skills/ and .gg/agents/ are empty. Add or explicitly map reusable Swift/macOS signing, hosted-test and privileged-helper skills; the existing commit command is not skill coverage."
+      ],
+      "evidence": [
+        "Scope: Root context accuracy, unique workflows, regeneration fences, byte budget and project-local agent/skill setup.",
+        "Not checked: Global skill installations, actual builds/tests, signing/keychain readiness or deployment credentials.",
+        "Read app startup, PersonalCopyLock, scan/deletion policies, subprocess/cache code, scripts and CI; three read-only investigations completed.",
+        "wc -c CLAUDE.md: 5943 bytes; generated block: 5900 bytes; fence/priority/budget assertions passed; git diff --check passed.",
+        "find .gg -maxdepth 3 excluding uploads: empty skills/agents directories; read .gg/commands/commit.md."
+      ]
+    },
+    "compliance": {
+      "checkedAt": "2026-10-20T00:58:20.108Z",
+      "commit": "67cd212",
+      "uncommittedChanges": true,
+      "result": "pass",
+      "summary": "Recorded privacy/notices fixes verified by full 664-test suite and unsigned Release build; complete licences confirmed in Release app. Scoped engineering result, not legal certification.",
+      "findings": [],
+      "evidence": [
+        "Scope: Verification of existing privacy/licence fixes with project checks and fresh unsigned Release resource inspection; not a new legal review.",
+        "Not checked: Signed/notarized DMG exports, runtime network traffic, jurisdictions, trademark rights, public distribution or external donation-site practices. Not legal advice.",
+        "Standalone unpiped scripts/dev-test.sh exited 0: all 664 tests in 100 suites passed, including bundled licence regressions.",
+        "Standalone unpiped npm run lint:design, shellcheck **/*.sh and npm audit --package-lock-only --ignore-scripts --logs-max=0 --update-notifier=false all exited 0; audit found zero vulnerabilities.",
+        "Initial isolated Release build stalled fetching Sparkle and was stopped, not counted as passing. Retried using existing build/test/SourcePackages cache with updates/automatic resolution disabled.",
+        "Standalone unpiped xcodebuild Release build exited 0 with signing disabled, derived data build/verification and locked Sparkle 2.9.4 from the existing cache.",
+        "PASSED fresh unsigned Release app check: project and full Sparkle notices present exactly once, byte-identical to original sources and checked-in resource copies.",
+        "Previously verified privacy text matches local content hashing, 100-session history limit/clearing and disabled updates; no privacy text changed during this verification.",
+        "Build warnings remain, including skipped icon generation and actor isolation; no check assertions were weakened or skipped to pass.",
+        "Standalone git diff --check exited 0; status confirmed no additional source changes. Only checklist evidence updated; prior changes preserved."
+      ]
+    },
+    "dependencies": {
+      "checkedAt": "2026-10-20T00:40:39.741Z",
+      "commit": "67cd212",
+      "uncommittedChanges": true,
+      "result": "pass",
+      "summary": "Standalone npm audit re-check passes with zero vulnerabilities; strict temporary icon check passes 83/83 and fails on missing icons or changed pixels. No dependency edits.",
+      "findings": [],
+      "evidence": [
+        "Scope: Actual re-check of the recorded sharp fix using standalone npm audit and strict generated-icon compatibility; not a new full dependency review.",
+        "Not checked: Native app builds/tests, other platforms, vendor binary internals, fresh Swift advisory scan or full transitive maintenance review.",
+        "Ran standalone npm audit --package-lock-only --ignore-scripts --logs-max=0 --update-notifier=false: exit 0, found 0 vulnerabilities.",
+        "Ran unmodified icon generator with installed dependencies in a temporary project copy; exact manifest/output-set assertions reject missing or extra icons.",
+        "PASSED icon compatibility 83/83: nonempty 56x56 alpha PNGs; decoded channel/dimension checks and byte equality assertions reject any changed pixels.",
+        "PASSED unchanged-file hash checks for package.json, package-lock.json, icon manifest and bundled PNGs. Temporary verification files removed automatically.",
+        "Previously loaded bulletproof method retained. No installs, dependency edits, unrelated-file changes or commits during this re-check; only checklist stores this record."
+      ]
+    },
+    "docs": {
+      "checkedAt": "2026-10-20T00:19:50.849Z",
+      "commit": "67cd212",
+      "uncommittedChanges": true,
+      "result": "issues",
+      "summary": "Read-only README/setup review found conflicting fork run, hosted-test and updater instructions; licence and checked local links are present.",
+      "findings": [
+        "High: README.md:325 and CONTRIBUTING.md:52 recommend tests under the production identity, rejected by PersonalCopyLock. README.md:330 misstates test signing. Use scripts/dev-test.sh and document its isolated identity and no private certificate.",
+        "Medium: README.md:274 and README.md:286 clone upstream and recommend DerivedData launches, incompatible with this fork's pinned path/certificate. Separate upstream installation from the supported personal-fork build/run workflow.",
+        "Medium: README.md:238 promises Sparkle updates, but PersonalCopyLock.swift:14 and PurgeUpdater.swift:25 disable them. Label upstream-only update instructions and describe local rebuilds."
+      ],
+      "evidence": [
+        "Scope: README purpose, install/run/test instructions, environment requirements, licence and linked setup documentation; read-only source/config comparison.",
+        "Not checked: Actual installs/builds/tests, signing/keychain readiness, external links or release downloads; execution workflows can write files or change machine state.",
+        "Read README.md, CONTRIBUTING.md, LICENSE, package.json, Xcode scheme, build CI, PersonalCopyLock, PurgeUpdater, dev-run.sh and dev-test.sh.",
+        "Read app entry, local history/protection persistence, AIModelScanPolicy and RemovedAppMonitor; native macOS UI with local user data, no hosted app deployment found.",
+        "git grep environment/config references and git ls-files '*env*' '*.xcconfig': no required runtime env file; OLLAMA_MODELS is optional with a default.",
+        "bash -n scripts/*.sh via per-script loop: all passed; Python local-link check: all 3 Markdown file targets exist, MIT licence present and linked.",
+        "git diff --check passed; git status --short before/after inspection unchanged. No files modified by review commands.",
+        "No skill loaded, as instructed. No previous docs findings or owner-accepted docs findings existed."
+      ]
+    },
+    "git-github": {
+      "checkedAt": "2026-10-20T00:23:57.426Z",
+      "commit": "67cd212",
+      "uncommittedChanges": true,
+      "result": "issues",
+      "summary": "Read-only local and live GitHub review: valid repository/remotes, but main is unprotected, local-file ignores are incomplete and large media remain in main history.",
+      "findings": [
+        "High: GitHub g-baskin/purge-app:main (remote setting) has no classic protection or effective rulesets. Require reviewed pull requests and the existing build status check; its current success is not enforcement.",
+        "Medium: .gitignore:23 does not cover .DS_Store or .gg/uploads/, and uploads are already untracked. Add targeted local-file exclusions without ignoring tracked .gg/commands/.",
+        "Medium: 02f3d84:screenshots/Purge-Demo.mp4 (93.45 MiB) and 2738dae:screenshots/Purge-Demo.gif (8.92 MiB) remain reachable in main history despite deletion. Use a separately approved, coordinated history migration or explicitly accept inherited history."
+      ],
+      "evidence": [
+        "Scope: Git identity/remotes, current tracked output, local ignore probes, main-reachable/local-ref blob sizes and live origin default-branch protection.",
+        "Not checked: Unreachable objects, server-only refs, external forks, build/test behavior or historical secret scanning. No settings/history/files changed by review commands.",
+        "git rev-parse and sanitized git remote -v: valid repo on main; origin is github.com/g-baskin/purge-app, upstream fetch points to original with disabled push URL.",
+        "Read .gitignore and packaging output paths; git check-ignore probes passed build/, DerivedData/, node_modules/, xcuserdata/ but failed .DS_Store and .gg/uploads/.",
+        "gh auth status and repository API: authenticated with admin access; live default branch main. Branch API protected=false; protection API 404 Branch not protected; effective rules and rulesets both [].",
+        "gh API main check-runs: build completed successfully. This is observed CI status, not a locally executed test/build or an enforced requirement.",
+        "git ls-tree: largest current blob 3785596 bytes; rev-list/cat-file found 97989321-byte MP4 and 9348717-byte GIF above 5 MiB in main history and all local refs.",
+        "git log confirmed historic media additions/removals; repository is not shallow. git count-objects: packed footprint 136.72 MiB.",
+        "git diff --check passed; GIT_OPTIONAL_LOCKS=0 git status remained unchanged through review. No prior git-github accepted findings; no skill loaded as instructed.",
+        "Reported /setup-ci for most configuration gaps; historical binary removal needs separate approval and coordination."
+      ]
+    },
+    "naming": {
+      "checkedAt": "2026-10-20T00:34:36.754Z",
+      "commit": "67cd212",
+      "uncommittedChanges": true,
+      "result": "issues",
+      "summary": "Rechecked the three recorded findings: glossary and context pointer added and verified; accounting wording and test-signing ADR remain open as requested.",
+      "findings": [
+        "Medium: purge/Views/LargeFilesView.swift:1475,1506 and README.md:154 still call selected/trashed bytes reclaimed or freed. Align estimate names/UI/docs with FileDeleter.swift:65,85; preserve legacy storage keys. Left open, not accepted.",
+        "Medium: library/knowledge/private/architecture/ADR-2-sign-local-builds-with-private-certificate.md:40 still describes private signing for tests; scripts/dev-test.sh:14 uses an isolated ad-hoc identity. Add a superseding decision. Left open, not accepted."
+      ],
+      "evidence": [
+        "Scope: Re-check only the three recorded naming findings after the owner selected glossary-only fixes; no new full vocabulary review.",
+        "Not checked: Every identifier/screen, runtime behavior, builds/tests, external references or other checklist items. Two unselected findings remain open.",
+        "Applied previously loaded shared-language method: CONTEXT.md is definitions only; added its required naming pointer inside CLAUDE.md's existing generated fence.",
+        "Read DeletionProtection, RestoreService, ScanAccess, ScanExclusions, DockerClient, SafetyInfo and safe-selection references to verify glossary distinctions.",
+        "Created 17 source-supported terms covering operations, accounting, safety, exclusions, protection and scan access; no code or UI behavior changed.",
+        "PASSED: Python glossary verification, six check groups: 17 entries, uniqueness, glossary-only content, fenced pointer, context budget and unresolved-findings assertions.",
+        "Re-read CONTEXT.md and context pointer. Glossary is 3431 bytes; generated context block is 5941 bytes, below 6 KiB.",
+        "Source assertions confirm original reclaimedBytes/freeing wording, README space-freed wording and accepted unsuperseded ADR-2 versus ad-hoc test script remain unchanged.",
+        "git diff --check passed; status shows only new CONTEXT.md and updated pre-existing CLAUDE.md from this fix. Prior .gitignore change and untracked uploads preserved."
+      ]
+    },
+    "secrets": {
+      "checkedAt": "2026-10-20T00:28:45.854Z",
+      "commit": "67cd212",
+      "uncommittedChanges": true,
+      "result": "issues",
+      "summary": "Rechecked the two recorded findings: env ignores fixed and verified; historical Gemini key remains open with unknown revocation. No new full secrets scan.",
+      "findings": [
+        "Medium [CODE]: 31deca1:purge.xcodeproj/xcshareddata/xcschemes/purge.xcscheme:56 retains enabled GEMINI_API_KEY material in main history, duplicated in 763e76c. Owner must confirm revocation or rotate and review usage; left open, not accepted."
+      ],
+      "evidence": [
+        "Scope: Re-check of only the two recorded secrets findings after the owner selected env-ignore fixes and left historical key revocation open.",
+        "Not checked: Credential validity/revocation, provider usage, full history/text rescan, binaries, artifacts, logs or remote-only refs. No credentials sent externally.",
+        "Read current .gitignore and prior secrets checklist record; applied only .env/.env.* exclusions with .env.example and .env.*.example exceptions.",
+        "git check-ignore --no-index assertions pass (12/12): root/nested env variants ignored, sanitized example variants allowed; existing xcconfig/build exclusions preserved.",
+        "In-memory Git/XML re-check confirms enabled Google-key-shaped GEMINI_API_KEY at 31deca1:scheme:56; git merge-base --is-ancestor confirms it remains in main. No key values printed.",
+        "git diff --check passed; re-read resulting .gitignore and reviewed its diff. Only .gitignore changed by the fix; pre-existing untracked files preserved.",
+        "Previously loaded bulletproof method retained. No builds, installs, keychain operations, provider validation or history modification performed."
+      ]
+    }
+  }
+}

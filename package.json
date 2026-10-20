@@ -6,7 +6,7 @@
     "lint:design": "node scripts/lint-design-tokens.mjs"
   },
   "devDependencies": {
-    "sharp": "^0.33.5",
+    "sharp": "0.35.5",
     "simple-icons": "^14.12.3",
     "simple-icons-v16": "npm:simple-icons@^16.20.0"
   }
